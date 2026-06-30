@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Texcom Peak SWD — Load Tracker</title>
+<style>
+  :root {
+    --bg: #0f1417;
+    --panel: #171e23;
+    --panel-2: #1d262c;
+    --border: #2b363d;
+    --text: #e9edef;
+    --text-secondary: #9aa7ad;
+    --text-muted: #6b787e;
+    --accent: #3d8bff;
+    --accent-text: #0f1417;
+    --danger: #e2554f;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 24px 20px 80px; }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 20px; font-weight: 600; margin: 0; }
+  header p { font-size: 13px; color: var(--text-secondary); margin: 2px 0 0; }
+  #status { font-size: 12px; color: var(--text-muted); }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 24px;
+  }
+  .panel h2 { font-size: 14px; font-weight: 600; margin: 0 0 14px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+  }
+  label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+  input, select {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 9px 10px;
+    font-size: 14px;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  button {
+    background: var(--accent);
+    color: var(--accent-text);
+    border: none;
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { opacity: 0.9; }
+  button.secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    font-weight: 500;
+  }
+  button.icon-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 4px 6px;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  button.icon-btn:hover { color: var(--danger); }
+  .error { font-size: 12px; color: var(--danger); margin: 8px 0 0; display: none; }
+  .summary-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .summary-row h2 { margin: 0; }
+  .summary-row select { margin-left: auto; min-width: 160px; width: auto; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .card { background: var(--panel-2); border-radius: var(--radius); padding: 14px; }
+  .card .label { font-size: 12px; color: var(--text-secondary); margin: 0 0 4px; }
+  .card .value { font-size: 24px; font-weight: 600; margin: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 6px; color: var(--text-secondary); font-weight: 600; border-bottom: 1px solid var(--border); }
+  th.num, td.num { text-align: right; }
+  td { padding: 8px 6px; border-bottom: 1px solid var(--border); }
+  .empty { text-align: center; color: var(--text-muted); padding: 16px; }
+  .recent-row {
+    display: flex; align-items: center; justify-content: space-between;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 8px 12px; font-size: 13px; margin-bottom: 6px; gap: 8px;
+  }
+  .recent-row .well { font-weight: 600; }
+  .recent-row .meta { color: var(--text-secondary); }
+  .recent-row .right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .recent-row .vol { font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Texcom Peak SWD</h1>
+      <p>Load tracker</p>
+    </div>
+    <div id="status">Loading…</div>
+  </header>
+
+  <div class="panel">
+    <h2>Log a load</h2>
+    <div class="grid">
+      <div>
+        <label for="f-date">Date</label>
+        <input type="date" id="f-date" />
+      </div>
+      <div>
+        <label for="f-well">Well name</label>
+        <input type="text" id="f-well" placeholder="e.g. Smith 4H" />
+      </div>
+      <div>
+        <label for="f-volume">Volume (bbls)</label>
+        <input type="number" id="f-volume" min="0" step="1" placeholder="0" />
+      </div>
+      <div>
+        <label for="f-trucking">Trucking company</label>
+        <input type="text" id="f-trucking" placeholder="e.g. ABC Trucking" />
+      </div>
+      <div>
+        <label for="f-oil">Oil company</label>
+        <input type="text" id="f-oil" placeholder="e.g. Continental Resources" />
+      </div>
+    </div>
+    <button id="add-btn" style="margin-top:14px;">Add load</button>
+    <p id="form-error" class="error"></p>
+  </div>
+
+  <div class="panel">
+    <div class="summary-row">
+      <h2>Monthly summary by well</h2>
+      <select id="month-select"></select>
+      <button class="secondary" id="export-btn">Download spreadsheet</button>
+    </div>
+    <div class="cards" id="summary-cards"></div>
+    <table>
+      <thead>
+        <tr><th>Well</th><th class="num">Loads</th><th class="num">Total bbls</th></tr>
+      </thead>
+      <tbody id="well-table-body"></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <h2>Total monthly summary</h2>
+    <table>
+      <thead>
+        <tr><th>Month</th><th class="num">Total loads</th><th class="num">Total bbls</th></tr>
+      </thead>
+      <tbody id="totals-table-body"></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <h2>Recent loads</h2>
+    <div id="recent-list"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  // ---- SETUP: paste your Supabase project values here ----
+  const SUPABASE_URL = "https://ztqizzpsuzyolqyamvop.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_LN8DPOZ8-gstsMQS8mQ7Sw_xiWmzk5S";
+  // ----------------------------------------------------------
+
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const statusEl = document.getElementById("status");
+  let loads = [];
+
+  function fmtDate(d) {
+    const parts = d.split("-");
+    return parts[1] + "/" + parts[2] + "/" + parts[0];
+  }
+  function monthKey(d) { return d.slice(0, 7); }
+  function monthLabel(key) {
+    const parts = key.split("-");
+    const names = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    return names[parseInt(parts[1], 10) - 1] + " " + parts[0];
+  }
+  function todayStr() {
+    const d = new Date();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return d.getFullYear() + "-" + m + "-" + day;
+  }
+  document.getElementById("f-date").value = todayStr();
+
+  async function loadData() {
+    statusEl.textContent = "Loading…";
+    const { data, error } = await supabase
+      .from("loads")
+      .select("*")
+      .order("date", { ascending: true });
+    if (error) {
+      statusEl.textContent = "Connection error — check setup";
+      console.error(error);
+      return;
+    }
+    loads = data || [];
+    statusEl.textContent = "Connected";
+    render();
+  }
+
+  async function addLoad(load) {
+    const { error } = await supabase.from("loads").insert([load]);
+    if (error) {
+      console.error(error);
+      alert("Could not save load: " + error.message);
+      return false;
+    }
+    return true;
+  }
+
+  async function deleteLoad(id) {
+    const { error } = await supabase.from("loads").delete().eq("id", id);
+    if (error) {
+      console.error(error);
+      alert("Could not delete load: " + error.message);
+      return false;
+    }
+    return true;
+  }
+
+  function populateMonths() {
+    const sel = document.getElementById("month-select");
+    const keys = {};
+    loads.forEach((l) => { keys[monthKey(l.date)] = true; });
+    const current = monthKey(todayStr());
+    keys[current] = true;
+    const sorted = Object.keys(keys).sort().reverse();
+    const prevVal = sel.value;
+    sel.innerHTML = "";
+    sorted.forEach((k) => {
+      const opt = document.createElement("option");
+      opt.value = k;
+      opt.textContent = monthLabel(k);
+      sel.appendChild(opt);
+    });
+    sel.value = sorted.indexOf(prevVal) >= 0 ? prevVal : current;
+  }
+
+  function getMonthWellData(key) {
+    const filtered = loads.filter((l) => monthKey(l.date) === key);
+    const wellCount = {};
+    filtered.forEach((l) => {
+      if (!wellCount[l.well]) wellCount[l.well] = { count: 0, volume: 0 };
+      wellCount[l.well].count += 1;
+      wellCount[l.well].volume += Number(l.volume);
+    });
+    return { filtered, wellCount };
+  }
+
+  function renderSummary() {
+    const sel = document.getElementById("month-select");
+    const key = sel.value;
+    const { filtered, wellCount } = getMonthWellData(key);
+    const totalVolume = filtered.reduce((s, l) => s + Number(l.volume), 0);
+    const wellNames = Object.keys(wellCount);
+
+    const cards = document.getElementById("summary-cards");
+    cards.innerHTML = `
+      <div class="card"><p class="label">Total loads</p><p class="value">${filtered.length}</p></div>
+      <div class="card"><p class="label">Total volume (bbls)</p><p class="value">${totalVolume.toLocaleString()}</p></div>
+      <div class="card"><p class="label">Wells received from</p><p class="value">${wellNames.length}</p></div>
+    `;
+
+    const tbody = document.getElementById("well-table-body");
+    tbody.innerHTML = "";
+    if (wellNames.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="3" class="empty">No loads logged for this month.</td></tr>`;
+    } else {
+      wellNames.sort((a, b) => wellCount[b].volume - wellCount[a].volume);
+      wellNames.forEach((name) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${name}</td><td class="num">${wellCount[name].count}</td><td class="num">${wellCount[name].volume.toLocaleString()}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+  }
+
+  function renderRecent() {
+    const container = document.getElementById("recent-list");
+    container.innerHTML = "";
+    const sorted = loads.slice().sort((a, b) => (b.date > a.date ? 1 : -1)).slice(0, 15);
+
+    if (sorted.length === 0) {
+      container.innerHTML = `<p style="font-size:13px; color:var(--text-muted);">No loads logged yet. Add one above.</p>`;
+      return;
+    }
+
+    sorted.forEach((l) => {
+      const meta = [fmtDate(l.date)];
+      if (l.trucking) meta.push(l.trucking);
+      if (l.oil) meta.push(l.oil);
+      const row = document.createElement("div");
+      row.className = "recent-row";
+      row.innerHTML = `
+        <div><span class="well">${l.well}</span> <span class="meta">· ${meta.join(" · ")}</span></div>
+        <div class="right">
+          <span class="vol">${Number(l.volume).toLocaleString()} bbls</span>
+          <button class="icon-btn" title="Delete load" aria-label="Delete load">✕</button>
+        </div>
+      `;
+      row.querySelector("button").addEventListener("click", async () => {
+        const ok = await deleteLoad(l.id);
+        if (ok) {
+          loads = loads.filter((x) => x.id !== l.id);
+          render();
+        }
+      });
+      container.appendChild(row);
+    });
+  }
+
+  function renderTotals() {
+    const tbody = document.getElementById("totals-table-body");
+    tbody.innerHTML = "";
+    const monthMap = {};
+    loads.forEach((l) => {
+      const k = monthKey(l.date);
+      if (!monthMap[k]) monthMap[k] = { count: 0, volume: 0 };
+      monthMap[k].count += 1;
+      monthMap[k].volume += Number(l.volume);
+    });
+    const keys = Object.keys(monthMap).sort().reverse();
+    if (keys.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="3" class="empty">No loads logged yet.</td></tr>`;
+      return;
+    }
+    keys.forEach((k) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${monthLabel(k)}</td><td class="num">${monthMap[k].count}</td><td class="num">${monthMap[k].volume.toLocaleString()}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function render() {
+    populateMonths();
+    renderSummary();
+    renderTotals();
+    renderRecent();
+  }
+
+  function csvEscape(val) {
+    const s = String(val);
+    if (s.indexOf(",") >= 0 || s.indexOf('"') >= 0 || s.indexOf("\n") >= 0) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  }
+
+  function exportCSV() {
+    const sel = document.getElementById("month-select");
+    const key = sel.value;
+    const label = monthLabel(key);
+    const { filtered, wellCount } = getMonthWellData(key);
+    const wellNames = Object.keys(wellCount).sort((a, b) => wellCount[b].volume - wellCount[a].volume);
+
+    const rows = [];
+    rows.push(["Texcom Peak SWD - Monthly Load Summary"]);
+    rows.push([label]);
+    rows.push([]);
+    rows.push(["Well", "Number of loads", "Total volume (bbls)"]);
+    wellNames.forEach((name) => {
+      rows.push([name, wellCount[name].count, wellCount[name].volume]);
+    });
+    const totalLoads = filtered.length;
+    const totalVolume = filtered.reduce((s, l) => s + Number(l.volume), 0);
+    rows.push([]);
+    rows.push(["Total", totalLoads, totalVolume]);
+
+    rows.push([]);
+    rows.push(["Load detail"]);
+    rows.push(["Date", "Well", "Volume (bbls)", "Trucking company", "Oil company"]);
+    filtered.slice().sort((a, b) => (a.date < b.date ? -1 : 1)).forEach((l) => {
+      rows.push([l.date, l.well, l.volume, l.trucking || "", l.oil || ""]);
+    });
+
+    const csv = rows.map((r) => r.map(csvEscape).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "Texcom Peak SWD - " + label + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  document.getElementById("month-select").addEventListener("change", renderSummary);
+  document.getElementById("export-btn").addEventListener("click", exportCSV);
+
+  document.getElementById("add-btn").addEventListener("click", async () => {
+    const date = document.getElementById("f-date").value;
+    const well = document.getElementById("f-well").value.trim();
+    const volume = parseFloat(document.getElementById("f-volume").value);
+    const trucking = document.getElementById("f-trucking").value.trim();
+    const oil = document.getElementById("f-oil").value.trim();
+    const errEl = document.getElementById("form-error");
+
+    if (!date || !well || isNaN(volume) || volume < 0) {
+      errEl.textContent = "Enter a date, well name, and volume.";
+      errEl.style.display = "block";
+      return;
+    }
+    errEl.style.display = "none";
+
+    const newLoad = { date, well, volume, trucking, oil };
+    const ok = await addLoad(newLoad);
+    if (ok) {
+      document.getElementById("f-well").value = "";
+      document.getElementById("f-volume").value = "";
+      document.getElementById("f-trucking").value = "";
+      document.getElementById("f-oil").value = "";
+      await loadData();
+    }
+  });
+
+  loadData();
+</script>
+</body>
+</html>
