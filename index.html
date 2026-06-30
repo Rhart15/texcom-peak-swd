@@ -119,6 +119,17 @@
   .recent-row .meta { color: var(--text-secondary); }
   .recent-row .right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
   .recent-row .vol { font-weight: 600; }
+  .edit-row { display: block; }
+  .edit-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .edit-grid label { font-size: 11px; color: var(--text-secondary); margin-bottom: 3px; }
+  .edit-grid input { padding: 7px 8px; font-size: 13px; }
+  .edit-actions { display: flex; gap: 8px; }
+  .edit-actions button { padding: 7px 14px; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -245,6 +256,16 @@
     return true;
   }
 
+  async function updateLoad(id, fields) {
+    const { error } = await sb.from("loads").update(fields).eq("id", id);
+    if (error) {
+      console.error(error);
+      alert("Could not update load: " + error.message);
+      return false;
+    }
+    return true;
+  }
+
   async function deleteLoad(id) {
     const { error } = await sb.from("loads").delete().eq("id", id);
     if (error) {
@@ -312,6 +333,8 @@
     }
   }
 
+  let editingId = null;
+
   function renderRecent() {
     const container = document.getElementById("recent-list");
     container.innerHTML = "";
@@ -323,25 +346,83 @@
     }
 
     sorted.forEach((l) => {
-      const meta = [fmtDate(l.date)];
-      if (l.trucking) meta.push(l.trucking);
-      if (l.oil) meta.push(l.oil);
       const row = document.createElement("div");
-      row.className = "recent-row";
-      row.innerHTML = `
-        <div><span class="well">${l.well}</span> <span class="meta">· ${meta.join(" · ")}</span></div>
-        <div class="right">
-          <span class="vol">${Number(l.volume).toLocaleString()} bbls</span>
-          <button class="icon-btn" title="Delete load" aria-label="Delete load">✕</button>
-        </div>
-      `;
-      row.querySelector("button").addEventListener("click", async () => {
-        const ok = await deleteLoad(l.id);
-        if (ok) {
-          loads = loads.filter((x) => x.id !== l.id);
-          render();
-        }
-      });
+
+      if (editingId === l.id) {
+        row.className = "recent-row edit-row";
+        row.innerHTML = `
+          <div class="edit-grid">
+            <div>
+              <label>Date</label>
+              <input type="date" class="e-date" value="${l.date}" />
+            </div>
+            <div>
+              <label>Well name</label>
+              <input type="text" class="e-well" value="${l.well.replace(/"/g, "&quot;")}" />
+            </div>
+            <div>
+              <label>Volume (bbls)</label>
+              <input type="number" min="0" step="1" class="e-volume" value="${l.volume}" />
+            </div>
+            <div>
+              <label>Trucking company</label>
+              <input type="text" class="e-trucking" value="${(l.trucking || "").replace(/"/g, "&quot;")}" />
+            </div>
+            <div>
+              <label>Oil company</label>
+              <input type="text" class="e-oil" value="${(l.oil || "").replace(/"/g, "&quot;")}" />
+            </div>
+          </div>
+          <div class="edit-actions">
+            <button class="save-btn">Save</button>
+            <button class="secondary cancel-btn">Cancel</button>
+          </div>
+        `;
+        row.querySelector(".save-btn").addEventListener("click", async () => {
+          const date = row.querySelector(".e-date").value;
+          const well = row.querySelector(".e-well").value.trim();
+          const volume = parseFloat(row.querySelector(".e-volume").value);
+          const trucking = row.querySelector(".e-trucking").value.trim();
+          const oil = row.querySelector(".e-oil").value.trim();
+          if (!date || !well || isNaN(volume) || volume < 0) {
+            alert("Enter a date, well name, and volume.");
+            return;
+          }
+          const ok = await updateLoad(l.id, { date, well, volume, trucking, oil });
+          if (ok) {
+            editingId = null;
+            await loadData();
+          }
+        });
+        row.querySelector(".cancel-btn").addEventListener("click", () => {
+          editingId = null;
+          renderRecent();
+        });
+      } else {
+        const meta = [fmtDate(l.date)];
+        if (l.trucking) meta.push(l.trucking);
+        if (l.oil) meta.push(l.oil);
+        row.className = "recent-row";
+        row.innerHTML = `
+          <div><span class="well">${l.well}</span> <span class="meta">· ${meta.join(" · ")}</span></div>
+          <div class="right">
+            <span class="vol">${Number(l.volume).toLocaleString()} bbls</span>
+            <button class="icon-btn edit-btn" title="Edit load" aria-label="Edit load">✎</button>
+            <button class="icon-btn del-btn" title="Delete load" aria-label="Delete load">✕</button>
+          </div>
+        `;
+        row.querySelector(".edit-btn").addEventListener("click", () => {
+          editingId = l.id;
+          renderRecent();
+        });
+        row.querySelector(".del-btn").addEventListener("click", async () => {
+          const ok = await deleteLoad(l.id);
+          if (ok) {
+            loads = loads.filter((x) => x.id !== l.id);
+            render();
+          }
+        });
+      }
       container.appendChild(row);
     });
   }
