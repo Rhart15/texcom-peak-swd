@@ -197,7 +197,7 @@
   const SUPABASE_ANON_KEY = "sb_publishable_LN8DPOZ8-gstsMQS8mQ7Sw_xiWmzk5S";
   // ----------------------------------------------------------
 
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const statusEl = document.getElementById("status");
   let loads = [];
 
@@ -221,7 +221,7 @@
 
   async function loadData() {
     statusEl.textContent = "Loading…";
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from("loads")
       .select("*")
       .order("date", { ascending: true });
@@ -236,7 +236,7 @@
   }
 
   async function addLoad(load) {
-    const { error } = await supabase.from("loads").insert([load]);
+    const { error } = await sb.from("loads").insert([load]);
     if (error) {
       console.error(error);
       alert("Could not save load: " + error.message);
@@ -246,7 +246,7 @@
   }
 
   async function deleteLoad(id) {
-    const { error } = await supabase.from("loads").delete().eq("id", id);
+    const { error } = await sb.from("loads").delete().eq("id", id);
     if (error) {
       console.error(error);
       alert("Could not delete load: " + error.message);
