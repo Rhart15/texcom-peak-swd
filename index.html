@@ -163,7 +163,7 @@
       </div>
       <div>
         <label for="f-oil">Oil company</label>
-        <input type="text" id="f-oil" placeholder="e.g. Continental Resources" />
+        <input type="text" id="f-oil" placeholder="e.g. Continental Resources" value="Flywheel" />
       </div>
     </div>
     <button id="add-btn" style="margin-top:14px;">Add load</button>
@@ -527,7 +527,7 @@
       document.getElementById("f-well").value = "";
       document.getElementById("f-volume").value = "";
       document.getElementById("f-trucking").value = "";
-      document.getElementById("f-oil").value = "";
+      document.getElementById("f-oil").value = "Flywheel";
       await loadData();
     }
   });
