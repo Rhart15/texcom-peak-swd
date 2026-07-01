@@ -506,13 +506,13 @@
 
     // Sheet 1 — Monthly Summary
     const ws1 = workbook.addWorksheet("Monthly Summary");
-    ws1.columns = [{ width:42 },{ width:18 },{ width:20 },{ width:20 }];
+    ws1.columns = [{ width:42 },{ width:18 },{ width:20 }];
 
-    ws1.mergeCells("A1:D1");
+    ws1.mergeCells("A1:C1");
     Object.assign(ws1.getCell("A1"), { value:"Texcom Peak SWD — Monthly Load Summary", font:{ ...baseFont, size:16 }, alignment:center });
     ws1.getRow(1).height = 28;
 
-    ws1.mergeCells("A2:D2");
+    ws1.mergeCells("A2:C2");
     Object.assign(ws1.getCell("A2"), { value:label, font:baseFont, alignment:center });
     ws1.getRow(2).height = 22;
 
@@ -521,11 +521,11 @@
     const uniqueDays = new Set(filtered.map((l) => l.date)).size;
     const loadsPerDay = uniqueDays > 0 ? (totalLoads / uniqueDays).toFixed(1) : "0.0";
 
-    const sHdr = ws1.addRow(["Total Loads", "Total Volume (bbls)", "Wells Received From", "Loads Per Day"]);
+    const sHdr = ws1.addRow(["Total Loads", "Total Volume (bbls)", "Wells Received From"]);
     sHdr.height = 22;
     sHdr.eachCell((c) => { c.font = baseFont; c.alignment = center; c.border = hdrBorder; });
 
-    const sVals = ws1.addRow([totalLoads, totalVolume, wellNames.length, loadsPerDay]);
+    const sVals = ws1.addRow([totalLoads, totalVolume, wellNames.length]);
     sVals.height = 22;
     sVals.eachCell((c) => { c.font = baseFont; c.alignment = center; });
 
@@ -570,6 +570,36 @@
         c.alignment = col === 2 ? left : center;
       });
     });
+
+    // Sheet 3 — Loads Per Day
+    const ws3 = workbook.addWorksheet("Loads Per Day");
+    ws3.columns = [{ width:20 },{ width:18 },{ width:20 }];
+
+    ws3.mergeCells("A1:C1");
+    Object.assign(ws3.getCell("A1"), { value:"Texcom Peak SWD — Loads Per Day — " + label, font:{ ...baseFont, size:16 }, alignment:center });
+    ws3.getRow(1).height = 28;
+    ws3.addRow([]);
+
+    const lpHdr = ws3.addRow(["Date", "Loads", "Total bbls"]);
+    lpHdr.height = 22;
+    lpHdr.eachCell((c) => { c.font = baseFont; c.alignment = center; c.border = hdrBorder; });
+
+    const dayMap = {};
+    filtered.forEach((l) => {
+      if (!dayMap[l.date]) dayMap[l.date] = { count:0, volume:0 };
+      dayMap[l.date].count++;
+      dayMap[l.date].volume += Number(l.volume);
+    });
+    Object.keys(dayMap).sort().forEach((date) => {
+      const row = ws3.addRow([date, dayMap[date].count, dayMap[date].volume]);
+      row.height = 20;
+      row.eachCell((c) => { c.font = baseFont; c.alignment = center; });
+    });
+
+    ws3.addRow([]);
+    const lpTot = ws3.addRow(["TOTAL", totalLoads, totalVolume]);
+    lpTot.height = 22;
+    lpTot.eachCell((c) => { c.font = { ...baseFont, size:15 }; c.alignment = center; c.border = { top:{ style:"medium", color:{ argb:"FF000000" } } }; });
 
     const buf = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buf], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
