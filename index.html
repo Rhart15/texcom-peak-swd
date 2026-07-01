@@ -20,136 +20,53 @@
     --radius: 8px;
   }
   * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    line-height: 1.5;
-  }
-  .wrap { max-width: 960px; margin: 0 auto; padding: 24px 20px 80px; }
-  header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 28px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--border);
-  }
-  header h1 { font-size: 20px; font-weight: 600; margin: 0; }
-  header p { font-size: 13px; color: var(--text-secondary); margin: 2px 0 0; }
-  #status { font-size: 12px; color: var(--text-muted); }
-  .panel {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 18px 20px;
-    margin-bottom: 24px;
-  }
-  .panel h2 { font-size: 14px; font-weight: 600; margin: 0 0 14px; }
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 12px;
-  }
-  label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
-  input, select {
-    width: 100%;
-    background: var(--panel-2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text);
-    padding: 9px 10px;
-    font-size: 14px;
-  }
-  input:focus, select:focus { outline: none; border-color: var(--accent); }
-  button {
-    background: var(--accent);
-    color: var(--accent-text);
-    border: none;
-    border-radius: var(--radius);
-    padding: 10px 16px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  button:hover { opacity: 0.9; }
-  button.secondary {
-    background: transparent;
-    color: var(--text);
-    border: 1px solid var(--border);
-    font-weight: 500;
-  }
-  button.icon-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    padding: 4px 6px;
-    cursor: pointer;
-    font-size: 16px;
-  }
-  button.icon-btn:hover { color: var(--danger); }
-  .error { font-size: 12px; color: var(--danger); margin: 8px 0 0; display: none; }
-  .summary-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 14px;
-  }
-  .summary-row h2 { margin: 0; }
-  .summary-row select { margin-left: auto; min-width: 160px; width: auto; }
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 18px; }
-  .card { background: var(--panel-2); border-radius: var(--radius); padding: 14px; }
-  .card .label { font-size: 12px; color: var(--text-secondary); margin: 0 0 4px; }
-  .card .value { font-size: 24px; font-weight: 600; margin: 0; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; padding: 8px 6px; color: var(--text-secondary); font-weight: 600; border-bottom: 1px solid var(--border); }
-  th.num, td.num { text-align: right; }
-  td { padding: 8px 6px; border-bottom: 1px solid var(--border); }
-  .empty { text-align: center; color: var(--text-muted); padding: 16px; }
-  .recent-row {
-    display: flex; align-items: center; justify-content: space-between;
-    border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 8px 12px; font-size: 13px; margin-bottom: 6px; gap: 8px;
-  }
-  .recent-row .well { font-weight: 600; }
-  .recent-row .meta { color: var(--text-secondary); }
-  .recent-row .right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-  .recent-row .vol { font-weight: 600; }
-  .edit-row { display: block; }
-  .edit-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-  .edit-grid label { font-size: 11px; color: var(--text-secondary); margin-bottom: 3px; }
-  .edit-grid input { padding: 7px 8px; font-size: 13px; }
-  .edit-actions { display: flex; gap: 8px; }
-  .edit-actions button { padding: 7px 14px; font-size: 13px; }
-  #well-search-suggestions .suggestions-box {
-    position: absolute;
-    top: 2px;
-    left: 0;
-    min-width: 300px;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    z-index: 10;
-    max-height: 200px;
-    overflow-y: auto;
-  }
-  #well-search-suggestions .suggestions-box div {
-    padding: 8px 12px;
-    font-size: 13px;
-    cursor: pointer;
-  }
-  #well-search-suggestions .suggestions-box div:hover {
-    background: var(--panel-2);
-  }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
+  .wrap { max-width:960px; margin:0 auto; padding:24px 20px 80px; }
+  header { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; margin-bottom:28px; padding-bottom:16px; border-bottom:1px solid var(--border); }
+  header h1 { font-size:20px; font-weight:600; margin:0; }
+  header p { font-size:13px; color:var(--text-secondary); margin:2px 0 0; }
+  #status { font-size:12px; color:var(--text-muted); }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:18px 20px; margin-bottom:24px; }
+  .panel h2 { font-size:14px; font-weight:600; margin:0 0 14px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+  label { display:block; font-size:12px; color:var(--text-secondary); margin-bottom:4px; }
+  input, select { width:100%; background:var(--panel-2); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); padding:9px 10px; font-size:14px; }
+  input:focus, select:focus { outline:none; border-color:var(--accent); }
+  button { background:var(--accent); color:var(--accent-text); border:none; border-radius:var(--radius); padding:10px 16px; font-size:14px; font-weight:600; cursor:pointer; }
+  button:hover { opacity:0.9; }
+  button.secondary { background:transparent; color:var(--text); border:1px solid var(--border); font-weight:500; }
+  button.icon-btn { background:transparent; border:none; color:var(--text-muted); padding:4px 6px; cursor:pointer; font-size:16px; }
+  button.icon-btn:hover { color:var(--accent); }
+  button.icon-btn.del-btn:hover { color:var(--danger); }
+  .error { font-size:12px; color:var(--danger); margin:8px 0 0; display:none; }
+  .summary-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+  .summary-row h2 { margin:0; }
+  .summary-row select { margin-left:auto; min-width:160px; width:auto; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:18px; }
+  .card { background:var(--panel-2); border-radius:var(--radius); padding:14px; }
+  .card .label { font-size:12px; color:var(--text-secondary); margin:0 0 4px; }
+  .card .value { font-size:24px; font-weight:600; margin:0; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; padding:8px 6px; color:var(--text-secondary); font-weight:600; border-bottom:1px solid var(--border); }
+  th.num, td.num { text-align:right; }
+  td { padding:8px 6px; border-bottom:1px solid var(--border); }
+  .empty { text-align:center; color:var(--text-muted); padding:16px; }
+  .recent-row { display:flex; align-items:center; justify-content:space-between; border:1px solid var(--border); border-radius:var(--radius); padding:8px 12px; font-size:13px; margin-bottom:6px; gap:8px; }
+  .recent-row .well { font-weight:600; }
+  .recent-row .meta { color:var(--text-secondary); }
+  .recent-row .right { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+  .recent-row .vol { font-weight:600; }
+  .edit-row { border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin-bottom:6px; }
+  .edit-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:10px; }
+  .edit-grid label { font-size:11px; color:var(--text-secondary); margin-bottom:3px; }
+  .edit-grid input { padding:7px 8px; font-size:13px; }
+  .edit-actions { display:flex; gap:8px; }
+  .edit-actions button { padding:7px 14px; font-size:13px; }
+  .search-wrap { margin-bottom:12px; position:relative; display:inline-block; }
+  .search-wrap input { max-width:300px; }
+  .suggestions-box { position:absolute; top:100%; left:0; min-width:300px; background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); z-index:10; max-height:200px; overflow-y:auto; margin-top:2px; }
+  .suggestions-box div { padding:8px 12px; font-size:13px; cursor:pointer; }
+  .suggestions-box div:hover { background:var(--panel-2); }
 </style>
 </head>
 <body>
@@ -165,26 +82,15 @@
   <div class="panel">
     <h2>Log a load</h2>
     <div class="grid">
-      <div>
-        <label for="f-date">Date</label>
-        <input type="date" id="f-date" />
-      </div>
-      <div>
+      <div><label for="f-date">Date</label><input type="date" id="f-date" /></div>
+      <div style="position:relative;">
         <label for="f-well">Well name</label>
-        <input type="text" id="f-well" placeholder="e.g. Smith 4H" />
+        <input type="text" id="f-well" placeholder="e.g. Smith 4H" autocomplete="off" />
+        <div id="f-well-suggestions" class="suggestions-box" style="display:none;"></div>
       </div>
-      <div>
-        <label for="f-volume">Volume (bbls)</label>
-        <input type="number" id="f-volume" min="0" step="1" placeholder="0" />
-      </div>
-      <div>
-        <label for="f-trucking">Trucking company</label>
-        <input type="text" id="f-trucking" placeholder="e.g. ABC Trucking" />
-      </div>
-      <div>
-        <label for="f-oil">Oil company</label>
-        <input type="text" id="f-oil" placeholder="e.g. Continental Resources" value="Flywheel" />
-      </div>
+      <div><label for="f-volume">Volume (bbls)</label><input type="number" id="f-volume" min="0" step="1" placeholder="0" /></div>
+      <div><label for="f-trucking">Trucking company</label><input type="text" id="f-trucking" placeholder="e.g. ABC Trucking" /></div>
+      <div><label for="f-oil">Oil company</label><input type="text" id="f-oil" value="Flywheel" /></div>
     </div>
     <button id="add-btn" style="margin-top:14px;">Add load</button>
     <p id="form-error" class="error"></p>
@@ -197,9 +103,9 @@
       <button class="secondary" id="export-btn">Download spreadsheet</button>
     </div>
     <div class="cards" id="summary-cards"></div>
-    <div style="margin-bottom:12px;">
-      <input type="text" id="well-search" placeholder="Search wells…" autocomplete="off" style="max-width:300px;" />
-      <div id="well-search-suggestions" style="position:relative;"></div>
+    <div class="search-wrap">
+      <input type="text" id="well-search" placeholder="Search wells…" autocomplete="off" />
+      <div id="well-suggestions" class="suggestions-box" style="display:none;"></div>
     </div>
     <table>
       <thead>
@@ -228,44 +134,37 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script>
-  // ---- SETUP: paste your Supabase project values here ----
   const SUPABASE_URL = "https://ztqizzpsuzyolqyamvop.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_LN8DPOZ8-gstsMQS8mQ7Sw_xiWmzk5S";
-  // ----------------------------------------------------------
 
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const statusEl = document.getElementById("status");
   let loads = [];
+  let editingId = null;
 
+  // ── Helpers ────────────────────────────────────────────────────
   function fmtDate(d) {
-    const parts = d.split("-");
-    return parts[1] + "/" + parts[2] + "/" + parts[0];
+    const p = d.split("-");
+    return p[1] + "/" + p[2] + "/" + p[0];
   }
   function monthKey(d) { return d.slice(0, 7); }
   function monthLabel(key) {
-    const parts = key.split("-");
+    const p = key.split("-");
     const names = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-    return names[parseInt(parts[1], 10) - 1] + " " + parts[0];
+    return names[parseInt(p[1], 10) - 1] + " " + p[0];
   }
   function todayStr() {
     const d = new Date();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return d.getFullYear() + "-" + m + "-" + day;
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
   }
+
   document.getElementById("f-date").value = todayStr();
 
+  // ── Supabase ───────────────────────────────────────────────────
   async function loadData() {
     statusEl.textContent = "Loading…";
-    const { data, error } = await sb
-      .from("loads")
-      .select("*")
-      .order("date", { ascending: true });
-    if (error) {
-      statusEl.textContent = "Connection error — check setup";
-      console.error(error);
-      return;
-    }
+    const { data, error } = await sb.from("loads").select("*").order("date", { ascending: true });
+    if (error) { statusEl.textContent = "Connection error"; console.error(error); return; }
     loads = data || [];
     statusEl.textContent = "Connected";
     render();
@@ -273,34 +172,23 @@
 
   async function addLoad(load) {
     const { error } = await sb.from("loads").insert([load]);
-    if (error) {
-      console.error(error);
-      alert("Could not save load: " + error.message);
-      return false;
-    }
+    if (error) { alert("Could not save: " + error.message); return false; }
     return true;
   }
 
   async function updateLoad(id, fields) {
     const { error } = await sb.from("loads").update(fields).eq("id", id);
-    if (error) {
-      console.error(error);
-      alert("Could not update load: " + error.message);
-      return false;
-    }
+    if (error) { alert("Could not update: " + error.message); return false; }
     return true;
   }
 
   async function deleteLoad(id) {
     const { error } = await sb.from("loads").delete().eq("id", id);
-    if (error) {
-      console.error(error);
-      alert("Could not delete load: " + error.message);
-      return false;
-    }
+    if (error) { alert("Could not delete: " + error.message); return false; }
     return true;
   }
 
+  // ── Month dropdown ─────────────────────────────────────────────
   function populateMonths() {
     const sel = document.getElementById("month-select");
     const keys = {};
@@ -308,37 +196,101 @@
     const current = monthKey(todayStr());
     keys[current] = true;
     const sorted = Object.keys(keys).sort().reverse();
-    const prevVal = sel.value;
+    const prev = sel.value;
     sel.innerHTML = "";
     sorted.forEach((k) => {
-      const opt = document.createElement("option");
-      opt.value = k;
-      opt.textContent = monthLabel(k);
-      sel.appendChild(opt);
+      const o = document.createElement("option");
+      o.value = k; o.textContent = monthLabel(k);
+      sel.appendChild(o);
     });
-    sel.value = sorted.indexOf(prevVal) >= 0 ? prevVal : current;
+    sel.value = sorted.includes(prev) ? prev : current;
   }
 
   function getMonthWellData(key) {
     const filtered = loads.filter((l) => monthKey(l.date) === key);
     const wellCount = {};
     filtered.forEach((l) => {
-      if (!wellCount[l.well]) wellCount[l.well] = { count: 0, volume: 0 };
-      wellCount[l.well].count += 1;
+      if (!wellCount[l.well]) wellCount[l.well] = { count:0, volume:0 };
+      wellCount[l.well].count++;
       wellCount[l.well].volume += Number(l.volume);
     });
     return { filtered, wellCount };
   }
 
+  // ── Search ─────────────────────────────────────────────────────
+  function setupSearch() {
+    // ── Well name autocomplete on the log form ──
+    const wellInput = document.getElementById("f-well");
+    const wellBox = document.getElementById("f-well-suggestions");
+
+    function closeWellSuggestions() { wellBox.style.display = "none"; wellBox.innerHTML = ""; }
+
+    wellInput.addEventListener("input", () => {
+      const val = wellInput.value.trim().toLowerCase();
+      closeWellSuggestions();
+      if (!val) return;
+      const allWells = [...new Set(loads.map((l) => l.well))].sort();
+      const matches = allWells.filter((w) => w.toLowerCase().includes(val)).slice(0, 10);
+      if (matches.length) {
+        matches.forEach((w) => {
+          const item = document.createElement("div");
+          item.textContent = w;
+          item.addEventListener("click", () => { wellInput.value = w; closeWellSuggestions(); });
+          wellBox.appendChild(item);
+        });
+        wellBox.style.display = "block";
+      }
+    });
+
+    wellInput.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeWellSuggestions();
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!wellInput.contains(e.target) && !wellBox.contains(e.target)) closeWellSuggestions();
+    });
+
+    // ── Well search filter on summary table ──
+    const input = document.getElementById("well-search");
+    const box = document.getElementById("well-suggestions");
+
+    function closeSuggestions() { box.style.display = "none"; box.innerHTML = ""; }
+
+    input.addEventListener("input", () => {
+      const val = input.value.trim().toLowerCase();
+      closeSuggestions();
+      renderSummary();
+      if (!val) return;
+      const allWells = [...new Set(loads.map((l) => l.well))].sort();
+      const matches = allWells.filter((w) => w.toLowerCase().includes(val)).slice(0, 10);
+      if (matches.length && matches.length < allWells.length) {
+        matches.forEach((w) => {
+          const item = document.createElement("div");
+          item.textContent = w;
+          item.addEventListener("click", () => { input.value = w; closeSuggestions(); renderSummary(); });
+          box.appendChild(item);
+        });
+        box.style.display = "block";
+      }
+    });
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { input.value = ""; closeSuggestions(); renderSummary(); }
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!input.contains(e.target) && !box.contains(e.target)) closeSuggestions();
+    });
+  }
+
+  // ── Render summary ─────────────────────────────────────────────
   function renderSummary() {
-    const sel = document.getElementById("month-select");
-    const key = sel.value;
+    const key = document.getElementById("month-select").value;
     const { filtered, wellCount } = getMonthWellData(key);
     const totalVolume = filtered.reduce((s, l) => s + Number(l.volume), 0);
     const wellNames = Object.keys(wellCount);
 
-    const cards = document.getElementById("summary-cards");
-    cards.innerHTML = `
+    document.getElementById("summary-cards").innerHTML = `
       <div class="card"><p class="label">Total loads</p><p class="value">${filtered.length}</p></div>
       <div class="card"><p class="label">Total volume (bbls)</p><p class="value">${totalVolume.toLocaleString()}</p></div>
       <div class="card"><p class="label">Wells received from</p><p class="value">${wellNames.length}</p></div>
@@ -348,265 +300,114 @@
     tbody.innerHTML = "";
     if (wellNames.length === 0) {
       tbody.innerHTML = `<tr><td colspan="4" class="empty">No loads logged for this month.</td></tr>`;
-    } else {
-      wellNames.sort((a, b) => wellCount[b].volume - wellCount[a].volume);
-      const searchFilter = getSearchFilter();
-      const visibleWells = searchFilter ? wellNames.filter((n) => n.toLowerCase().includes(searchFilter)) : wellNames;
-      if (visibleWells.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="empty">No wells match your search.</td></tr>`;
-      } else {
-      visibleWells.forEach((name) => {
-        // Summary row
-        const tr = document.createElement("tr");
-        tr.className = "well-summary-row";
-        tr.innerHTML = `
-          <td>${name}</td>
-          <td class="num">${wellCount[name].count}</td>
-          <td class="num">${wellCount[name].volume.toLocaleString()}</td>
-          <td class="num"><button class="icon-btn expand-btn" title="Edit loads for this well">✎</button></td>
-        `;
-        tbody.appendChild(tr);
-
-        // Expandable detail rows (hidden by default)
-        const detailRow = document.createElement("tr");
-        detailRow.className = "well-detail-row";
-        detailRow.style.display = "none";
-        const detailCell = document.createElement("td");
-        detailCell.colSpan = 4;
-        detailCell.style.padding = "0 0 8px 12px";
-
-        const wellLoads = filtered.filter((l) => l.well === name).sort((a, b) => a.date < b.date ? -1 : 1);
-        const detailList = document.createElement("div");
-        detailList.style.cssText = "display:flex; flex-direction:column; gap:6px; padding:8px 0;";
-
-        function renderWellLoadList() {
-          detailList.innerHTML = "";
-          wellLoads.forEach((l) => {
-            const item = document.createElement("div");
-
-            if (editingId === l.id) {
-              item.className = "edit-row";
-              item.style.padding = "10px";
-              item.style.border = "1px solid var(--border)";
-              item.style.borderRadius = "var(--radius)";
-              item.innerHTML = `
-                <div class="edit-grid">
-                  <div><label>Date</label><input type="date" class="e-date" value="${l.date}" /></div>
-                  <div><label>Well name</label><input type="text" class="e-well" value="${l.well.replace(/"/g,'&quot;')}" /></div>
-                  <div><label>Volume (bbls)</label><input type="number" min="0" step="1" class="e-volume" value="${l.volume}" /></div>
-                  <div><label>Trucking company</label><input type="text" class="e-trucking" value="${(l.trucking||'').replace(/"/g,'&quot;')}" /></div>
-                  <div><label>Oil company</label><input type="text" class="e-oil" value="${(l.oil||'').replace(/"/g,'&quot;')}" /></div>
-                </div>
-                <div class="edit-actions">
-                  <button class="save-btn">Save</button>
-                  <button class="secondary cancel-btn">Cancel</button>
-                </div>
-              `;
-              item.querySelector(".save-btn").addEventListener("click", async () => {
-                const date = item.querySelector(".e-date").value;
-                const well = item.querySelector(".e-well").value.trim();
-                const volume = parseFloat(item.querySelector(".e-volume").value);
-                const trucking = item.querySelector(".e-trucking").value.trim();
-                const oil = item.querySelector(".e-oil").value.trim();
-                if (!date || !well || isNaN(volume) || volume < 0) { alert("Enter a date, well name, and volume."); return; }
-                const ok = await updateLoad(l.id, { date, well, volume, trucking, oil });
-                if (ok) { editingId = null; await loadData(); }
-              });
-              item.querySelector(".cancel-btn").addEventListener("click", () => {
-                editingId = null;
-                renderWellLoadList();
-              });
-            } else {
-              item.className = "recent-row";
-              const meta = [fmtDate(l.date)];
-              if (l.trucking) meta.push(l.trucking);
-              if (l.oil) meta.push(l.oil);
-              item.innerHTML = `
-                <div><span class="well">${l.well}</span> <span class="meta">· ${meta.join(" · ")}</span></div>
-                <div class="right">
-                  <span class="vol">${Number(l.volume).toLocaleString()} bbls</span>
-                  <button class="icon-btn edit-btn" title="Edit">✎</button>
-                  <button class="icon-btn del-btn" title="Delete">✕</button>
-                </div>
-              `;
-              item.querySelector(".edit-btn").addEventListener("click", () => {
-                editingId = l.id;
-                renderWellLoadList();
-              });
-              item.querySelector(".del-btn").addEventListener("click", async () => {
-                const ok = await deleteLoad(l.id);
-                if (ok) {
-                  loads = loads.filter((x) => x.id !== l.id);
-                  render();
-                }
-              });
-            }
-            detailList.appendChild(item);
-          });
-        }
-
-        renderWellLoadList();
-        detailCell.appendChild(detailList);
-        detailRow.appendChild(detailCell);
-        tbody.appendChild(detailRow);
-
-        // Toggle expand on click
-        tr.querySelector(".expand-btn").addEventListener("click", () => {
-          const isOpen = detailRow.style.display !== "none";
-          detailRow.style.display = isOpen ? "none" : "table-row";
-          tr.querySelector(".expand-btn").textContent = isOpen ? "✎" : "▲";
-        });
-      });
-      } // end visibleWells
-    }
-  }
-    const input = document.getElementById("well-search");
-    const suggestionsEl = document.getElementById("well-search-suggestions");
-
-    input.addEventListener("input", () => {
-      const val = input.value.trim().toLowerCase();
-      suggestionsEl.innerHTML = "";
-      if (!val) { renderSummary(); return; }
-
-      // Get all unique well names across all loads
-      const allWells = [...new Set(loads.map((l) => l.well))].sort();
-      const matches = allWells.filter((w) => w.toLowerCase().includes(val));
-
-      if (matches.length > 0 && matches.length < allWells.length) {
-        const box = document.createElement("div");
-        box.className = "suggestions-box";
-        matches.slice(0, 10).forEach((w) => {
-          const item = document.createElement("div");
-          item.textContent = w;
-          item.addEventListener("click", () => {
-            input.value = w;
-            suggestionsEl.innerHTML = "";
-            renderSummary();
-          });
-          box.appendChild(item);
-        });
-        suggestionsEl.appendChild(box);
-      }
-
-      renderSummary();
-    });
-
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") { input.value = ""; suggestionsEl.innerHTML = ""; renderSummary(); }
-    });
-
-    document.addEventListener("click", (e) => {
-      if (!input.contains(e.target) && !suggestionsEl.contains(e.target)) {
-        suggestionsEl.innerHTML = "";
-      }
-    });
-  }
-
-  function getSearchFilter() {
-    const val = document.getElementById("well-search");
-    return val ? val.value.trim().toLowerCase() : "";
-  }
-
-  function renderRecent() {
-    const container = document.getElementById("recent-list");
-    container.innerHTML = "";
-    const sorted = loads.slice().sort((a, b) => (b.date > a.date ? 1 : -1)).slice(0, 15);
-
-    if (sorted.length === 0) {
-      container.innerHTML = `<p style="font-size:13px; color:var(--text-muted);">No loads logged yet. Add one above.</p>`;
       return;
     }
 
-    sorted.forEach((l) => {
-      const row = document.createElement("div");
+    const searchVal = (document.getElementById("well-search").value || "").trim().toLowerCase();
+    const sorted = wellNames.sort((a, b) => wellCount[b].volume - wellCount[a].volume);
+    const visible = searchVal ? sorted.filter((n) => n.toLowerCase().includes(searchVal)) : sorted;
 
-      if (editingId === l.id) {
-        row.className = "recent-row edit-row";
-        row.innerHTML = `
-          <div class="edit-grid">
-            <div>
-              <label>Date</label>
-              <input type="date" class="e-date" value="${l.date}" />
-            </div>
-            <div>
-              <label>Well name</label>
-              <input type="text" class="e-well" value="${l.well.replace(/"/g, "&quot;")}" />
-            </div>
-            <div>
-              <label>Volume (bbls)</label>
-              <input type="number" min="0" step="1" class="e-volume" value="${l.volume}" />
-            </div>
-            <div>
-              <label>Trucking company</label>
-              <input type="text" class="e-trucking" value="${(l.trucking || "").replace(/"/g, "&quot;")}" />
-            </div>
-            <div>
-              <label>Oil company</label>
-              <input type="text" class="e-oil" value="${(l.oil || "").replace(/"/g, "&quot;")}" />
-            </div>
-          </div>
-          <div class="edit-actions">
-            <button class="save-btn">Save</button>
-            <button class="secondary cancel-btn">Cancel</button>
-          </div>
-        `;
-        row.querySelector(".save-btn").addEventListener("click", async () => {
-          const date = row.querySelector(".e-date").value;
-          const well = row.querySelector(".e-well").value.trim();
-          const volume = parseFloat(row.querySelector(".e-volume").value);
-          const trucking = row.querySelector(".e-trucking").value.trim();
-          const oil = row.querySelector(".e-oil").value.trim();
-          if (!date || !well || isNaN(volume) || volume < 0) {
-            alert("Enter a date, well name, and volume.");
-            return;
+    if (visible.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4" class="empty">No wells match your search.</td></tr>`;
+      return;
+    }
+
+    visible.forEach((name) => {
+      // Summary row
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${name}</td>
+        <td class="num">${wellCount[name].count}</td>
+        <td class="num">${wellCount[name].volume.toLocaleString()}</td>
+        <td class="num"><button class="icon-btn expand-btn" title="Edit loads">✎</button></td>
+      `;
+      tbody.appendChild(tr);
+
+      // Expandable detail rows
+      const detailTr = document.createElement("tr");
+      detailTr.style.display = "none";
+      const detailTd = document.createElement("td");
+      detailTd.colSpan = 4;
+      detailTd.style.padding = "0 0 8px 12px";
+      const detailList = document.createElement("div");
+      detailList.style.cssText = "display:flex;flex-direction:column;gap:6px;padding:8px 0;";
+
+      const wellLoads = filtered.filter((l) => l.well === name).sort((a, b) => a.date < b.date ? -1 : 1);
+
+      function renderWellList() {
+        detailList.innerHTML = "";
+        wellLoads.forEach((l) => {
+          const item = document.createElement("div");
+          if (editingId === l.id) {
+            item.className = "edit-row";
+            item.innerHTML = `
+              <div class="edit-grid">
+                <div><label>Date</label><input type="date" class="e-date" value="${l.date}" /></div>
+                <div><label>Well name</label><input type="text" class="e-well" value="${l.well.replace(/"/g,'&quot;')}" /></div>
+                <div><label>Volume (bbls)</label><input type="number" min="0" step="1" class="e-volume" value="${l.volume}" /></div>
+                <div><label>Trucking company</label><input type="text" class="e-trucking" value="${(l.trucking||'').replace(/"/g,'&quot;')}" /></div>
+                <div><label>Oil company</label><input type="text" class="e-oil" value="${(l.oil||'').replace(/"/g,'&quot;')}" /></div>
+              </div>
+              <div class="edit-actions">
+                <button class="save-btn">Save</button>
+                <button class="secondary cancel-btn">Cancel</button>
+              </div>`;
+            item.querySelector(".save-btn").addEventListener("click", async () => {
+              const date = item.querySelector(".e-date").value;
+              const well = item.querySelector(".e-well").value.trim();
+              const volume = parseFloat(item.querySelector(".e-volume").value);
+              const trucking = item.querySelector(".e-trucking").value.trim();
+              const oil = item.querySelector(".e-oil").value.trim();
+              if (!date || !well || isNaN(volume) || volume < 0) { alert("Enter a date, well name, and volume."); return; }
+              const ok = await updateLoad(l.id, { date, well, volume, trucking, oil });
+              if (ok) { editingId = null; await loadData(); }
+            });
+            item.querySelector(".cancel-btn").addEventListener("click", () => { editingId = null; renderWellList(); });
+          } else {
+            item.className = "recent-row";
+            const meta = [fmtDate(l.date)];
+            if (l.trucking) meta.push(l.trucking);
+            if (l.oil) meta.push(l.oil);
+            item.innerHTML = `
+              <div><span class="well">${l.well}</span> <span class="meta">· ${meta.join(" · ")}</span></div>
+              <div class="right">
+                <span class="vol">${Number(l.volume).toLocaleString()} bbls</span>
+                <button class="icon-btn edit-btn" title="Edit">✎</button>
+                <button class="icon-btn del-btn" title="Delete">✕</button>
+              </div>`;
+            item.querySelector(".edit-btn").addEventListener("click", () => { editingId = l.id; renderWellList(); });
+            item.querySelector(".del-btn").addEventListener("click", async () => {
+              if (!confirm("Delete this load?")) return;
+              const ok = await deleteLoad(l.id);
+              if (ok) { loads = loads.filter((x) => x.id !== l.id); render(); }
+            });
           }
-          const ok = await updateLoad(l.id, { date, well, volume, trucking, oil });
-          if (ok) {
-            editingId = null;
-            await loadData();
-          }
-        });
-        row.querySelector(".cancel-btn").addEventListener("click", () => {
-          editingId = null;
-          renderRecent();
-        });
-      } else {
-        const meta = [fmtDate(l.date)];
-        if (l.trucking) meta.push(l.trucking);
-        if (l.oil) meta.push(l.oil);
-        row.className = "recent-row";
-        row.innerHTML = `
-          <div><span class="well">${l.well}</span> <span class="meta">· ${meta.join(" · ")}</span></div>
-          <div class="right">
-            <span class="vol">${Number(l.volume).toLocaleString()} bbls</span>
-            <button class="icon-btn edit-btn" title="Edit load" aria-label="Edit load">✎</button>
-            <button class="icon-btn del-btn" title="Delete load" aria-label="Delete load">✕</button>
-          </div>
-        `;
-        row.querySelector(".edit-btn").addEventListener("click", () => {
-          editingId = l.id;
-          renderRecent();
-        });
-        row.querySelector(".del-btn").addEventListener("click", async () => {
-          const ok = await deleteLoad(l.id);
-          if (ok) {
-            loads = loads.filter((x) => x.id !== l.id);
-            render();
-          }
+          detailList.appendChild(item);
         });
       }
-      container.appendChild(row);
+
+      renderWellList();
+      detailTd.appendChild(detailList);
+      detailTr.appendChild(detailTd);
+      tbody.appendChild(detailTr);
+
+      tr.querySelector(".expand-btn").addEventListener("click", () => {
+        const open = detailTr.style.display !== "none";
+        detailTr.style.display = open ? "none" : "table-row";
+        tr.querySelector(".expand-btn").textContent = open ? "✎" : "▲";
+      });
     });
   }
 
+  // ── Render totals ──────────────────────────────────────────────
   function renderTotals() {
     const tbody = document.getElementById("totals-table-body");
     tbody.innerHTML = "";
     const monthMap = {};
     loads.forEach((l) => {
       const k = monthKey(l.date);
-      if (!monthMap[k]) monthMap[k] = { count: 0, volume: 0 };
-      monthMap[k].count += 1;
+      if (!monthMap[k]) monthMap[k] = { count:0, volume:0 };
+      monthMap[k].count++;
       monthMap[k].volume += Number(l.volume);
     });
     const keys = Object.keys(monthMap).sort().reverse();
@@ -621,6 +422,66 @@
     });
   }
 
+  // ── Render recent loads ────────────────────────────────────────
+  function renderRecent() {
+    const container = document.getElementById("recent-list");
+    container.innerHTML = "";
+    const sorted = loads.slice().sort((a, b) => b.date > a.date ? 1 : -1).slice(0, 15);
+    if (sorted.length === 0) {
+      container.innerHTML = `<p style="font-size:13px;color:var(--text-muted);">No loads logged yet.</p>`;
+      return;
+    }
+    sorted.forEach((l) => {
+      const row = document.createElement("div");
+      if (editingId === l.id) {
+        row.className = "edit-row";
+        row.innerHTML = `
+          <div class="edit-grid">
+            <div><label>Date</label><input type="date" class="e-date" value="${l.date}" /></div>
+            <div><label>Well name</label><input type="text" class="e-well" value="${l.well.replace(/"/g,'&quot;')}" /></div>
+            <div><label>Volume (bbls)</label><input type="number" min="0" step="1" class="e-volume" value="${l.volume}" /></div>
+            <div><label>Trucking company</label><input type="text" class="e-trucking" value="${(l.trucking||'').replace(/"/g,'&quot;')}" /></div>
+            <div><label>Oil company</label><input type="text" class="e-oil" value="${(l.oil||'').replace(/"/g,'&quot;')}" /></div>
+          </div>
+          <div class="edit-actions">
+            <button class="save-btn">Save</button>
+            <button class="secondary cancel-btn">Cancel</button>
+          </div>`;
+        row.querySelector(".save-btn").addEventListener("click", async () => {
+          const date = row.querySelector(".e-date").value;
+          const well = row.querySelector(".e-well").value.trim();
+          const volume = parseFloat(row.querySelector(".e-volume").value);
+          const trucking = row.querySelector(".e-trucking").value.trim();
+          const oil = row.querySelector(".e-oil").value.trim();
+          if (!date || !well || isNaN(volume) || volume < 0) { alert("Enter a date, well name, and volume."); return; }
+          const ok = await updateLoad(l.id, { date, well, volume, trucking, oil });
+          if (ok) { editingId = null; await loadData(); }
+        });
+        row.querySelector(".cancel-btn").addEventListener("click", () => { editingId = null; renderRecent(); });
+      } else {
+        row.className = "recent-row";
+        const meta = [fmtDate(l.date)];
+        if (l.trucking) meta.push(l.trucking);
+        if (l.oil) meta.push(l.oil);
+        row.innerHTML = `
+          <div><span class="well">${l.well}</span> <span class="meta">· ${meta.join(" · ")}</span></div>
+          <div class="right">
+            <span class="vol">${Number(l.volume).toLocaleString()} bbls</span>
+            <button class="icon-btn edit-btn" title="Edit">✎</button>
+            <button class="icon-btn del-btn" title="Delete">✕</button>
+          </div>`;
+        row.querySelector(".edit-btn").addEventListener("click", () => { editingId = l.id; renderRecent(); });
+        row.querySelector(".del-btn").addEventListener("click", async () => {
+          if (!confirm("Delete this load?")) return;
+          const ok = await deleteLoad(l.id);
+          if (ok) { loads = loads.filter((x) => x.id !== l.id); render(); }
+        });
+      }
+      container.appendChild(row);
+    });
+  }
+
+  // ── Master render ──────────────────────────────────────────────
   function render() {
     populateMonths();
     renderSummary();
@@ -628,9 +489,9 @@
     renderRecent();
   }
 
+  // ── Excel export ───────────────────────────────────────────────
   async function exportXLSX() {
-    const sel = document.getElementById("month-select");
-    const key = sel.value;
+    const key = document.getElementById("month-select").value;
     const label = monthLabel(key);
     const { filtered, wellCount } = getMonthWellData(key);
     const wellNames = Object.keys(wellCount).sort((a, b) => wellCount[b].volume - wellCount[a].volume);
@@ -638,126 +499,80 @@
     const totalVolume = filtered.reduce((s, l) => s + Number(l.volume), 0);
 
     const workbook = new ExcelJS.Workbook();
+    const baseFont = { name:"Calibri", size:14, bold:true };
+    const center = { horizontal:"center", vertical:"middle" };
+    const left   = { horizontal:"left",   vertical:"middle" };
+    const hdrFill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF1F3244" } };
+    const hdrBorder = { bottom:{ style:"medium", color:{ argb:"FF3D8BFF" } } };
 
-    // ── Sheet 1: Monthly Summary ──────────────────────────────────
+    // Sheet 1 — Monthly Summary
     const ws1 = workbook.addWorksheet("Monthly Summary");
-    ws1.columns = [
-      { key: "well",   width: 40 },
-      { key: "loads",  width: 18 },
-      { key: "volume", width: 20 },
-    ];
+    ws1.columns = [{ width:42 },{ width:18 },{ width:20 }];
 
-    const baseFont = { name: "Calibri", size: 14, bold: true };
-    const centerAlign = { horizontal: "center", vertical: "middle" };
-    const leftAlign   = { horizontal: "left",   vertical: "middle" };
-
-    // Title row
     ws1.mergeCells("A1:C1");
-    const titleCell = ws1.getCell("A1");
-    titleCell.value = "Texcom Peak SWD — Monthly Load Summary";
-    titleCell.font = { ...baseFont, size: 16 };
-    titleCell.alignment = centerAlign;
+    Object.assign(ws1.getCell("A1"), { value:"Texcom Peak SWD — Monthly Load Summary", font:{ ...baseFont, size:16 }, alignment:center });
     ws1.getRow(1).height = 28;
 
-    // Month row
     ws1.mergeCells("A2:C2");
-    const monthCell = ws1.getCell("A2");
-    monthCell.value = label;
-    monthCell.font = baseFont;
-    monthCell.alignment = centerAlign;
+    Object.assign(ws1.getCell("A2"), { value:label, font:baseFont, alignment:center });
     ws1.getRow(2).height = 22;
 
     ws1.addRow([]);
 
-    // Stats row
-    const statsRow = ws1.addRow(["Total Loads", "Total Volume (bbls)", "Wells Received From"]);
-    statsRow.eachCell((cell) => {
-      cell.font = baseFont;
-      cell.alignment = centerAlign;
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F3244" } };
-      cell.border = { bottom: { style: "thin", color: { argb: "FF2B363D" } } };
-    });
-    statsRow.height = 22;
+    const sHdr = ws1.addRow(["Total Loads", "Total Volume (bbls)", "Wells Received From"]);
+    sHdr.height = 22;
+    sHdr.eachCell((c) => { c.font = baseFont; c.alignment = center; c.fill = hdrFill; c.border = hdrBorder; });
 
-    const statsVals = ws1.addRow([totalLoads, totalVolume.toLocaleString(), wellNames.length]);
-    statsVals.eachCell((cell) => {
-      cell.font = baseFont;
-      cell.alignment = centerAlign;
-    });
-    statsVals.height = 22;
+    const sVals = ws1.addRow([totalLoads, totalVolume, wellNames.length]);
+    sVals.height = 22;
+    sVals.eachCell((c) => { c.font = baseFont; c.alignment = center; });
 
     ws1.addRow([]);
 
-    // Well table header
-    const hdrRow = ws1.addRow(["Well", "Number of Loads", "Total Volume (bbls)"]);
-    hdrRow.eachCell((cell, col) => {
-      cell.font = baseFont;
-      cell.alignment = col === 1 ? leftAlign : centerAlign;
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F3244" } };
-      cell.border = { bottom: { style: "medium", color: { argb: "FF3D8BFF" } } };
-    });
-    hdrRow.height = 22;
+    const wHdr = ws1.addRow(["Well", "Number of Loads", "Total Volume (bbls)"]);
+    wHdr.height = 22;
+    wHdr.eachCell((c, col) => { c.font = baseFont; c.alignment = col === 1 ? left : center; c.fill = hdrFill; c.border = hdrBorder; });
 
     wellNames.forEach((name, i) => {
       const row = ws1.addRow([name, wellCount[name].count, wellCount[name].volume]);
-      row.eachCell((cell, col) => {
-        cell.font = baseFont;
-        cell.alignment = col === 1 ? leftAlign : centerAlign;
-        if (i % 2 === 1) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF171E23" } };
-      });
       row.height = 20;
+      row.eachCell((c, col) => {
+        c.font = baseFont;
+        c.alignment = col === 1 ? left : center;
+        if (i % 2 === 1) c.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF1A2228" } };
+      });
     });
 
     ws1.addRow([]);
-    const totalRow = ws1.addRow(["TOTAL", totalLoads, totalVolume]);
-    totalRow.eachCell((cell, col) => {
-      cell.font = { ...baseFont, size: 15 };
-      cell.alignment = col === 1 ? leftAlign : centerAlign;
-      cell.border = { top: { style: "medium", color: { argb: "FF3D8BFF" } } };
-    });
-    totalRow.height = 22;
+    const totRow = ws1.addRow(["TOTAL", totalLoads, totalVolume]);
+    totRow.height = 22;
+    totRow.eachCell((c, col) => { c.font = { ...baseFont, size:15 }; c.alignment = col === 1 ? left : center; c.border = { top:{ style:"medium", color:{ argb:"FF3D8BFF" } } }; });
 
-    // ── Sheet 2: Load Detail ──────────────────────────────────────
+    // Sheet 2 — Load Detail
     const ws2 = workbook.addWorksheet("Load Detail");
-    ws2.columns = [
-      { key: "date",     width: 16 },
-      { key: "well",     width: 40 },
-      { key: "volume",   width: 20 },
-      { key: "trucking", width: 28 },
-      { key: "oil",      width: 28 },
-    ];
+    ws2.columns = [{ width:16 },{ width:42 },{ width:20 },{ width:28 },{ width:28 }];
 
     ws2.mergeCells("A1:E1");
-    const t2 = ws2.getCell("A1");
-    t2.value = "Texcom Peak SWD — Load Detail — " + label;
-    t2.font = { ...baseFont, size: 16 };
-    t2.alignment = centerAlign;
+    Object.assign(ws2.getCell("A1"), { value:"Texcom Peak SWD — Load Detail — " + label, font:{ ...baseFont, size:16 }, alignment:center });
     ws2.getRow(1).height = 28;
-
     ws2.addRow([]);
 
     const dHdr = ws2.addRow(["Date", "Well", "Volume (bbls)", "Trucking Company", "Oil Company"]);
-    dHdr.eachCell((cell, col) => {
-      cell.font = baseFont;
-      cell.alignment = col === 2 ? leftAlign : centerAlign;
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F3244" } };
-      cell.border = { bottom: { style: "medium", color: { argb: "FF3D8BFF" } } };
-    });
     dHdr.height = 22;
+    dHdr.eachCell((c, col) => { c.font = baseFont; c.alignment = col === 2 ? left : center; c.fill = hdrFill; c.border = hdrBorder; });
 
-    filtered.slice().sort((a, b) => (a.date < b.date ? -1 : 1)).forEach((l, i) => {
+    filtered.slice().sort((a, b) => a.date < b.date ? -1 : 1).forEach((l, i) => {
       const row = ws2.addRow([l.date, l.well, Number(l.volume), l.trucking || "", l.oil || ""]);
-      row.eachCell((cell, col) => {
-        cell.font = baseFont;
-        cell.alignment = col === 2 ? leftAlign : centerAlign;
-        if (i % 2 === 1) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF171E23" } };
-      });
       row.height = 20;
+      row.eachCell((c, col) => {
+        c.font = baseFont;
+        c.alignment = col === 2 ? left : center;
+        if (i % 2 === 1) c.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF1A2228" } };
+      });
     });
 
-    // Download
     const buf = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const blob = new Blob([buf], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -768,16 +583,17 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  // ── Event listeners ────────────────────────────────────────────
   document.getElementById("month-select").addEventListener("change", renderSummary);
   document.getElementById("export-btn").addEventListener("click", exportXLSX);
 
   document.getElementById("add-btn").addEventListener("click", async () => {
-    const date = document.getElementById("f-date").value;
-    const well = document.getElementById("f-well").value.trim();
-    const volume = parseFloat(document.getElementById("f-volume").value);
+    const date     = document.getElementById("f-date").value;
+    const well     = document.getElementById("f-well").value.trim();
+    const volume   = parseFloat(document.getElementById("f-volume").value);
     const trucking = document.getElementById("f-trucking").value.trim();
-    const oil = document.getElementById("f-oil").value.trim();
-    const errEl = document.getElementById("form-error");
+    const oil      = document.getElementById("f-oil").value.trim();
+    const errEl    = document.getElementById("form-error");
 
     if (!date || !well || isNaN(volume) || volume < 0) {
       errEl.textContent = "Enter a date, well name, and volume.";
@@ -786,8 +602,7 @@
     }
     errEl.style.display = "none";
 
-    const newLoad = { date, well, volume, trucking, oil };
-    const ok = await addLoad(newLoad);
+    const ok = await addLoad({ date, well, volume, trucking, oil });
     if (ok) {
       document.getElementById("f-well").value = "";
       document.getElementById("f-volume").value = "";
@@ -797,8 +612,9 @@
     }
   });
 
-  loadData();
+  // ── Init ───────────────────────────────────────────────────────
   setupSearch();
+  loadData();
 </script>
 </body>
 </html>
