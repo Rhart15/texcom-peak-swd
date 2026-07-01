@@ -130,6 +130,26 @@
   .edit-grid input { padding: 7px 8px; font-size: 13px; }
   .edit-actions { display: flex; gap: 8px; }
   .edit-actions button { padding: 7px 14px; font-size: 13px; }
+  #well-search-suggestions .suggestions-box {
+    position: absolute;
+    top: 2px;
+    left: 0;
+    min-width: 300px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    z-index: 10;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  #well-search-suggestions .suggestions-box div {
+    padding: 8px 12px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  #well-search-suggestions .suggestions-box div:hover {
+    background: var(--panel-2);
+  }
 </style>
 </head>
 <body>
@@ -177,6 +197,10 @@
       <button class="secondary" id="export-btn">Download spreadsheet</button>
     </div>
     <div class="cards" id="summary-cards"></div>
+    <div style="margin-bottom:12px;">
+      <input type="text" id="well-search" placeholder="Search wells…" autocomplete="off" style="max-width:300px;" />
+      <div id="well-search-suggestions" style="position:relative;"></div>
+    </div>
     <table>
       <thead>
         <tr><th>Well</th><th class="num">Loads</th><th class="num">Total bbls</th><th></th></tr>
@@ -202,6 +226,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script>
   // ---- SETUP: paste your Supabase project values here ----
   const SUPABASE_URL = "https://ztqizzpsuzyolqyamvop.supabase.co";
@@ -325,7 +350,12 @@
       tbody.innerHTML = `<tr><td colspan="4" class="empty">No loads logged for this month.</td></tr>`;
     } else {
       wellNames.sort((a, b) => wellCount[b].volume - wellCount[a].volume);
-      wellNames.forEach((name) => {
+      const searchFilter = getSearchFilter();
+      const visibleWells = searchFilter ? wellNames.filter((n) => n.toLowerCase().includes(searchFilter)) : wellNames;
+      if (visibleWells.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="empty">No wells match your search.</td></tr>`;
+      } else {
+      visibleWells.forEach((name) => {
         // Summary row
         const tr = document.createElement("tr");
         tr.className = "well-summary-row";
@@ -427,10 +457,55 @@
           tr.querySelector(".expand-btn").textContent = isOpen ? "✎" : "▲";
         });
       });
+      } // end visibleWells
     }
   }
+    const input = document.getElementById("well-search");
+    const suggestionsEl = document.getElementById("well-search-suggestions");
 
-  let editingId = null;
+    input.addEventListener("input", () => {
+      const val = input.value.trim().toLowerCase();
+      suggestionsEl.innerHTML = "";
+      if (!val) { renderSummary(); return; }
+
+      // Get all unique well names across all loads
+      const allWells = [...new Set(loads.map((l) => l.well))].sort();
+      const matches = allWells.filter((w) => w.toLowerCase().includes(val));
+
+      if (matches.length > 0 && matches.length < allWells.length) {
+        const box = document.createElement("div");
+        box.className = "suggestions-box";
+        matches.slice(0, 10).forEach((w) => {
+          const item = document.createElement("div");
+          item.textContent = w;
+          item.addEventListener("click", () => {
+            input.value = w;
+            suggestionsEl.innerHTML = "";
+            renderSummary();
+          });
+          box.appendChild(item);
+        });
+        suggestionsEl.appendChild(box);
+      }
+
+      renderSummary();
+    });
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { input.value = ""; suggestionsEl.innerHTML = ""; renderSummary(); }
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!input.contains(e.target) && !suggestionsEl.contains(e.target)) {
+        suggestionsEl.innerHTML = "";
+      }
+    });
+  }
+
+  function getSearchFilter() {
+    const val = document.getElementById("well-search");
+    return val ? val.value.trim().toLowerCase() : "";
+  }
 
   function renderRecent() {
     const container = document.getElementById("recent-list");
@@ -553,47 +628,140 @@
     renderRecent();
   }
 
-  function csvEscape(val) {
-    const s = String(val);
-    if (s.indexOf(",") >= 0 || s.indexOf('"') >= 0 || s.indexOf("\n") >= 0) {
-      return '"' + s.replace(/"/g, '""') + '"';
-    }
-    return s;
-  }
-
-  function exportCSV() {
+  async function exportXLSX() {
     const sel = document.getElementById("month-select");
     const key = sel.value;
     const label = monthLabel(key);
     const { filtered, wellCount } = getMonthWellData(key);
     const wellNames = Object.keys(wellCount).sort((a, b) => wellCount[b].volume - wellCount[a].volume);
-
-    const rows = [];
-    rows.push(["Texcom Peak SWD - Monthly Load Summary"]);
-    rows.push([label]);
-    rows.push([]);
-    rows.push(["Well", "Number of loads", "Total volume (bbls)"]);
-    wellNames.forEach((name) => {
-      rows.push([name, wellCount[name].count, wellCount[name].volume]);
-    });
     const totalLoads = filtered.length;
     const totalVolume = filtered.reduce((s, l) => s + Number(l.volume), 0);
-    rows.push([]);
-    rows.push(["Total", totalLoads, totalVolume]);
 
-    rows.push([]);
-    rows.push(["Load detail"]);
-    rows.push(["Date", "Well", "Volume (bbls)", "Trucking company", "Oil company"]);
-    filtered.slice().sort((a, b) => (a.date < b.date ? -1 : 1)).forEach((l) => {
-      rows.push([l.date, l.well, l.volume, l.trucking || "", l.oil || ""]);
+    const workbook = new ExcelJS.Workbook();
+
+    // ── Sheet 1: Monthly Summary ──────────────────────────────────
+    const ws1 = workbook.addWorksheet("Monthly Summary");
+    ws1.columns = [
+      { key: "well",   width: 40 },
+      { key: "loads",  width: 18 },
+      { key: "volume", width: 20 },
+    ];
+
+    const baseFont = { name: "Calibri", size: 14, bold: true };
+    const centerAlign = { horizontal: "center", vertical: "middle" };
+    const leftAlign   = { horizontal: "left",   vertical: "middle" };
+
+    // Title row
+    ws1.mergeCells("A1:C1");
+    const titleCell = ws1.getCell("A1");
+    titleCell.value = "Texcom Peak SWD — Monthly Load Summary";
+    titleCell.font = { ...baseFont, size: 16 };
+    titleCell.alignment = centerAlign;
+    ws1.getRow(1).height = 28;
+
+    // Month row
+    ws1.mergeCells("A2:C2");
+    const monthCell = ws1.getCell("A2");
+    monthCell.value = label;
+    monthCell.font = baseFont;
+    monthCell.alignment = centerAlign;
+    ws1.getRow(2).height = 22;
+
+    ws1.addRow([]);
+
+    // Stats row
+    const statsRow = ws1.addRow(["Total Loads", "Total Volume (bbls)", "Wells Received From"]);
+    statsRow.eachCell((cell) => {
+      cell.font = baseFont;
+      cell.alignment = centerAlign;
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F3244" } };
+      cell.border = { bottom: { style: "thin", color: { argb: "FF2B363D" } } };
+    });
+    statsRow.height = 22;
+
+    const statsVals = ws1.addRow([totalLoads, totalVolume.toLocaleString(), wellNames.length]);
+    statsVals.eachCell((cell) => {
+      cell.font = baseFont;
+      cell.alignment = centerAlign;
+    });
+    statsVals.height = 22;
+
+    ws1.addRow([]);
+
+    // Well table header
+    const hdrRow = ws1.addRow(["Well", "Number of Loads", "Total Volume (bbls)"]);
+    hdrRow.eachCell((cell, col) => {
+      cell.font = baseFont;
+      cell.alignment = col === 1 ? leftAlign : centerAlign;
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F3244" } };
+      cell.border = { bottom: { style: "medium", color: { argb: "FF3D8BFF" } } };
+    });
+    hdrRow.height = 22;
+
+    wellNames.forEach((name, i) => {
+      const row = ws1.addRow([name, wellCount[name].count, wellCount[name].volume]);
+      row.eachCell((cell, col) => {
+        cell.font = baseFont;
+        cell.alignment = col === 1 ? leftAlign : centerAlign;
+        if (i % 2 === 1) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF171E23" } };
+      });
+      row.height = 20;
     });
 
-    const csv = rows.map((r) => r.map(csvEscape).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    ws1.addRow([]);
+    const totalRow = ws1.addRow(["TOTAL", totalLoads, totalVolume]);
+    totalRow.eachCell((cell, col) => {
+      cell.font = { ...baseFont, size: 15 };
+      cell.alignment = col === 1 ? leftAlign : centerAlign;
+      cell.border = { top: { style: "medium", color: { argb: "FF3D8BFF" } } };
+    });
+    totalRow.height = 22;
+
+    // ── Sheet 2: Load Detail ──────────────────────────────────────
+    const ws2 = workbook.addWorksheet("Load Detail");
+    ws2.columns = [
+      { key: "date",     width: 16 },
+      { key: "well",     width: 40 },
+      { key: "volume",   width: 20 },
+      { key: "trucking", width: 28 },
+      { key: "oil",      width: 28 },
+    ];
+
+    ws2.mergeCells("A1:E1");
+    const t2 = ws2.getCell("A1");
+    t2.value = "Texcom Peak SWD — Load Detail — " + label;
+    t2.font = { ...baseFont, size: 16 };
+    t2.alignment = centerAlign;
+    ws2.getRow(1).height = 28;
+
+    ws2.addRow([]);
+
+    const dHdr = ws2.addRow(["Date", "Well", "Volume (bbls)", "Trucking Company", "Oil Company"]);
+    dHdr.eachCell((cell, col) => {
+      cell.font = baseFont;
+      cell.alignment = col === 2 ? leftAlign : centerAlign;
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F3244" } };
+      cell.border = { bottom: { style: "medium", color: { argb: "FF3D8BFF" } } };
+    });
+    dHdr.height = 22;
+
+    filtered.slice().sort((a, b) => (a.date < b.date ? -1 : 1)).forEach((l, i) => {
+      const row = ws2.addRow([l.date, l.well, Number(l.volume), l.trucking || "", l.oil || ""]);
+      row.eachCell((cell, col) => {
+        cell.font = baseFont;
+        cell.alignment = col === 2 ? leftAlign : centerAlign;
+        if (i % 2 === 1) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF171E23" } };
+      });
+      row.height = 20;
+    });
+
+    // Download
+    const buf = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "Texcom Peak SWD - " + label + ".csv";
+    a.download = "Texcom Peak SWD - " + label + ".xlsx";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -601,7 +769,7 @@
   }
 
   document.getElementById("month-select").addEventListener("change", renderSummary);
-  document.getElementById("export-btn").addEventListener("click", exportCSV);
+  document.getElementById("export-btn").addEventListener("click", exportXLSX);
 
   document.getElementById("add-btn").addEventListener("click", async () => {
     const date = document.getElementById("f-date").value;
@@ -630,6 +798,7 @@
   });
 
   loadData();
+  setupSearch();
 </script>
 </body>
 </html>
