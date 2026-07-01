@@ -179,7 +179,7 @@
     <div class="cards" id="summary-cards"></div>
     <table>
       <thead>
-        <tr><th>Well</th><th class="num">Loads</th><th class="num">Total bbls</th></tr>
+        <tr><th>Well</th><th class="num">Loads</th><th class="num">Total bbls</th><th></th></tr>
       </thead>
       <tbody id="well-table-body"></tbody>
     </table>
@@ -322,13 +322,110 @@
     const tbody = document.getElementById("well-table-body");
     tbody.innerHTML = "";
     if (wellNames.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="3" class="empty">No loads logged for this month.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" class="empty">No loads logged for this month.</td></tr>`;
     } else {
       wellNames.sort((a, b) => wellCount[b].volume - wellCount[a].volume);
       wellNames.forEach((name) => {
+        // Summary row
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${name}</td><td class="num">${wellCount[name].count}</td><td class="num">${wellCount[name].volume.toLocaleString()}</td>`;
+        tr.className = "well-summary-row";
+        tr.innerHTML = `
+          <td>${name}</td>
+          <td class="num">${wellCount[name].count}</td>
+          <td class="num">${wellCount[name].volume.toLocaleString()}</td>
+          <td class="num"><button class="icon-btn expand-btn" title="Edit loads for this well">✎</button></td>
+        `;
         tbody.appendChild(tr);
+
+        // Expandable detail rows (hidden by default)
+        const detailRow = document.createElement("tr");
+        detailRow.className = "well-detail-row";
+        detailRow.style.display = "none";
+        const detailCell = document.createElement("td");
+        detailCell.colSpan = 4;
+        detailCell.style.padding = "0 0 8px 12px";
+
+        const wellLoads = filtered.filter((l) => l.well === name).sort((a, b) => a.date < b.date ? -1 : 1);
+        const detailList = document.createElement("div");
+        detailList.style.cssText = "display:flex; flex-direction:column; gap:6px; padding:8px 0;";
+
+        function renderWellLoadList() {
+          detailList.innerHTML = "";
+          wellLoads.forEach((l) => {
+            const item = document.createElement("div");
+
+            if (editingId === l.id) {
+              item.className = "edit-row";
+              item.style.padding = "10px";
+              item.style.border = "1px solid var(--border)";
+              item.style.borderRadius = "var(--radius)";
+              item.innerHTML = `
+                <div class="edit-grid">
+                  <div><label>Date</label><input type="date" class="e-date" value="${l.date}" /></div>
+                  <div><label>Well name</label><input type="text" class="e-well" value="${l.well.replace(/"/g,'&quot;')}" /></div>
+                  <div><label>Volume (bbls)</label><input type="number" min="0" step="1" class="e-volume" value="${l.volume}" /></div>
+                  <div><label>Trucking company</label><input type="text" class="e-trucking" value="${(l.trucking||'').replace(/"/g,'&quot;')}" /></div>
+                  <div><label>Oil company</label><input type="text" class="e-oil" value="${(l.oil||'').replace(/"/g,'&quot;')}" /></div>
+                </div>
+                <div class="edit-actions">
+                  <button class="save-btn">Save</button>
+                  <button class="secondary cancel-btn">Cancel</button>
+                </div>
+              `;
+              item.querySelector(".save-btn").addEventListener("click", async () => {
+                const date = item.querySelector(".e-date").value;
+                const well = item.querySelector(".e-well").value.trim();
+                const volume = parseFloat(item.querySelector(".e-volume").value);
+                const trucking = item.querySelector(".e-trucking").value.trim();
+                const oil = item.querySelector(".e-oil").value.trim();
+                if (!date || !well || isNaN(volume) || volume < 0) { alert("Enter a date, well name, and volume."); return; }
+                const ok = await updateLoad(l.id, { date, well, volume, trucking, oil });
+                if (ok) { editingId = null; await loadData(); }
+              });
+              item.querySelector(".cancel-btn").addEventListener("click", () => {
+                editingId = null;
+                renderWellLoadList();
+              });
+            } else {
+              item.className = "recent-row";
+              const meta = [fmtDate(l.date)];
+              if (l.trucking) meta.push(l.trucking);
+              if (l.oil) meta.push(l.oil);
+              item.innerHTML = `
+                <div><span class="well">${l.well}</span> <span class="meta">· ${meta.join(" · ")}</span></div>
+                <div class="right">
+                  <span class="vol">${Number(l.volume).toLocaleString()} bbls</span>
+                  <button class="icon-btn edit-btn" title="Edit">✎</button>
+                  <button class="icon-btn del-btn" title="Delete">✕</button>
+                </div>
+              `;
+              item.querySelector(".edit-btn").addEventListener("click", () => {
+                editingId = l.id;
+                renderWellLoadList();
+              });
+              item.querySelector(".del-btn").addEventListener("click", async () => {
+                const ok = await deleteLoad(l.id);
+                if (ok) {
+                  loads = loads.filter((x) => x.id !== l.id);
+                  render();
+                }
+              });
+            }
+            detailList.appendChild(item);
+          });
+        }
+
+        renderWellLoadList();
+        detailCell.appendChild(detailList);
+        detailRow.appendChild(detailCell);
+        tbody.appendChild(detailRow);
+
+        // Toggle expand on click
+        tr.querySelector(".expand-btn").addEventListener("click", () => {
+          const isOpen = detailRow.style.display !== "none";
+          detailRow.style.display = isOpen ? "none" : "table-row";
+          tr.querySelector(".expand-btn").textContent = isOpen ? "✎" : "▲";
+        });
       });
     }
   }
