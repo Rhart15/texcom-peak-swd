@@ -499,11 +499,10 @@
     const totalVolume = filtered.reduce((s, l) => s + Number(l.volume), 0);
 
     const workbook = new ExcelJS.Workbook();
-    const baseFont = { name:"Calibri", size:14, bold:true };
+    const baseFont = { name:"Calibri", size:14, bold:true, color:{ argb:"FF000000" } };
     const center = { horizontal:"center", vertical:"middle" };
     const left   = { horizontal:"left",   vertical:"middle" };
-    const hdrFill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF1F3244" } };
-    const hdrBorder = { bottom:{ style:"medium", color:{ argb:"FF3D8BFF" } } };
+    const hdrBorder = { bottom:{ style:"medium", color:{ argb:"FF000000" } } };
 
     // Sheet 1 — Monthly Summary
     const ws1 = workbook.addWorksheet("Monthly Summary");
@@ -521,7 +520,7 @@
 
     const sHdr = ws1.addRow(["Total Loads", "Total Volume (bbls)", "Wells Received From"]);
     sHdr.height = 22;
-    sHdr.eachCell((c) => { c.font = baseFont; c.alignment = center; c.fill = hdrFill; c.border = hdrBorder; });
+    sHdr.eachCell((c) => { c.font = baseFont; c.alignment = center; c.border = hdrBorder; });
 
     const sVals = ws1.addRow([totalLoads, totalVolume, wellNames.length]);
     sVals.height = 22;
@@ -531,7 +530,7 @@
 
     const wHdr = ws1.addRow(["Well", "Number of Loads", "Total Volume (bbls)"]);
     wHdr.height = 22;
-    wHdr.eachCell((c, col) => { c.font = baseFont; c.alignment = col === 1 ? left : center; c.fill = hdrFill; c.border = hdrBorder; });
+    wHdr.eachCell((c, col) => { c.font = baseFont; c.alignment = col === 1 ? left : center; c.border = hdrBorder; });
 
     wellNames.forEach((name, i) => {
       const row = ws1.addRow([name, wellCount[name].count, wellCount[name].volume]);
@@ -539,14 +538,13 @@
       row.eachCell((c, col) => {
         c.font = baseFont;
         c.alignment = col === 1 ? left : center;
-        if (i % 2 === 1) c.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF1A2228" } };
       });
     });
 
     ws1.addRow([]);
     const totRow = ws1.addRow(["TOTAL", totalLoads, totalVolume]);
     totRow.height = 22;
-    totRow.eachCell((c, col) => { c.font = { ...baseFont, size:15 }; c.alignment = col === 1 ? left : center; c.border = { top:{ style:"medium", color:{ argb:"FF3D8BFF" } } }; });
+    totRow.eachCell((c, col) => { c.font = { ...baseFont, size:15 }; c.alignment = col === 1 ? left : center; c.border = { top:{ style:"medium", color:{ argb:"FF000000" } } }; });
 
     // Sheet 2 — Load Detail
     const ws2 = workbook.addWorksheet("Load Detail");
@@ -559,7 +557,7 @@
 
     const dHdr = ws2.addRow(["Date", "Well", "Volume (bbls)", "Trucking Company", "Oil Company"]);
     dHdr.height = 22;
-    dHdr.eachCell((c, col) => { c.font = baseFont; c.alignment = col === 2 ? left : center; c.fill = hdrFill; c.border = hdrBorder; });
+    dHdr.eachCell((c, col) => { c.font = baseFont; c.alignment = col === 2 ? left : center; c.border = hdrBorder; });
 
     filtered.slice().sort((a, b) => a.date < b.date ? -1 : 1).forEach((l, i) => {
       const row = ws2.addRow([l.date, l.well, Number(l.volume), l.trucking || "", l.oil || ""]);
@@ -567,7 +565,6 @@
       row.eachCell((c, col) => {
         c.font = baseFont;
         c.alignment = col === 2 ? left : center;
-        if (i % 2 === 1) c.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF1A2228" } };
       });
     });
 
