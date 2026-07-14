@@ -4,646 +4,813 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Texcom Peak SWD — Load Tracker</title>
+<title>Texcom Peak SWD</title>
 <style>
   :root {
-    --bg: #0f1417;
-    --panel: #171e23;
-    --panel-2: #1d262c;
-    --border: #2b363d;
-    --text: #e9edef;
-    --text-secondary: #9aa7ad;
-    --text-muted: #6b787e;
-    --accent: #3d8bff;
-    --accent-text: #0f1417;
-    --danger: #e2554f;
-    --radius: 8px;
+    --bg: #f0f4f8;
+    --panel: #ffffff;
+    --border: #d1dbe6;
+    --text: #1a2535;
+    --text-secondary: #4a5a6e;
+    --text-muted: #8a98a8;
+    --accent: #1a6fdb;
+    --accent-dark: #1358b0;
+    --accent-light: #e8f0fb;
+    --success: #1a8a4a;
+    --danger: #cc3333;
+    --comp-accent: #8B2FC9;
+    --comp-light: #f3e8ff;
+    --radius: 10px;
+    --nav1-h: 56px;
+    --nav2-h: 52px;
+    --nav-total: 108px;
   }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
-  .wrap { max-width:960px; margin:0 auto; padding:24px 20px 80px; }
-  header { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; margin-bottom:28px; padding-bottom:16px; border-bottom:1px solid var(--border); }
-  header h1 { font-size:20px; font-weight:600; margin:0; }
-  header p { font-size:13px; color:var(--text-secondary); margin:2px 0 0; }
-  #status { font-size:12px; color:var(--text-muted); }
-  .panel { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:18px 20px; margin-bottom:24px; }
-  .panel h2 { font-size:14px; font-weight:600; margin:0 0 14px; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
-  label { display:block; font-size:12px; color:var(--text-secondary); margin-bottom:4px; }
-  input, select { width:100%; background:var(--panel-2); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); padding:9px 10px; font-size:14px; }
-  input:focus, select:focus { outline:none; border-color:var(--accent); }
-  button { background:var(--accent); color:var(--accent-text); border:none; border-radius:var(--radius); padding:10px 16px; font-size:14px; font-weight:600; cursor:pointer; }
-  button:hover { opacity:0.9; }
-  button.secondary { background:transparent; color:var(--text); border:1px solid var(--border); font-weight:500; }
-  button.icon-btn { background:transparent; border:none; color:var(--text-muted); padding:4px 6px; cursor:pointer; font-size:16px; }
-  button.icon-btn:hover { color:var(--accent); }
-  button.icon-btn.del-btn:hover { color:var(--danger); }
-  .error { font-size:12px; color:var(--danger); margin:8px 0 0; display:none; }
-  .summary-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
-  .summary-row h2 { margin:0; }
-  .summary-row select { margin-left:auto; min-width:160px; width:auto; }
-  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:18px; }
-  .card { background:var(--panel-2); border-radius:var(--radius); padding:14px; }
-  .card .label { font-size:12px; color:var(--text-secondary); margin:0 0 4px; }
-  .card .value { font-size:24px; font-weight:600; margin:0; }
-  table { width:100%; border-collapse:collapse; font-size:13px; }
-  th { text-align:left; padding:8px 6px; color:var(--text-secondary); font-weight:600; border-bottom:1px solid var(--border); }
-  th.num, td.num { text-align:right; }
-  td { padding:8px 6px; border-bottom:1px solid var(--border); }
-  .empty { text-align:center; color:var(--text-muted); padding:16px; }
-  .recent-row { display:flex; align-items:center; justify-content:space-between; border:1px solid var(--border); border-radius:var(--radius); padding:8px 12px; font-size:13px; margin-bottom:6px; gap:8px; }
-  .recent-row .well { font-weight:600; }
-  .recent-row .meta { color:var(--text-secondary); }
-  .recent-row .right { display:flex; align-items:center; gap:10px; flex-shrink:0; }
-  .recent-row .vol { font-weight:600; }
-  .edit-row { border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin-bottom:6px; }
-  .edit-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:10px; }
-  .edit-grid label { font-size:11px; color:var(--text-secondary); margin-bottom:3px; }
-  .edit-grid input { padding:7px 8px; font-size:13px; }
-  .edit-actions { display:flex; gap:8px; }
-  .edit-actions button { padding:7px 14px; font-size:13px; }
-  .search-wrap { margin-bottom:12px; position:relative; display:inline-block; }
-  .search-wrap input { max-width:300px; }
-  .suggestions-box { position:absolute; top:100%; left:0; min-width:300px; background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); z-index:10; max-height:200px; overflow-y:auto; margin-top:2px; }
-  .suggestions-box div { padding:8px 12px; font-size:13px; cursor:pointer; }
-  .suggestions-box div:hover { background:var(--panel-2); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); font-size: 16px; line-height: 1.6; }
+
+  /* ── Top nav row 1: brand + mode ── */
+  #nav-top { position: fixed; top: 0; left: 0; right: 0; height: var(--nav1-h); background: #1a2535; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; z-index: 100; box-shadow: 0 1px 0 rgba(255,255,255,0.07); }
+  .brand { color: #fff; font-size: 18px; font-weight: 800; letter-spacing: 0.3px; }
+  .brand span { color: #5aaeff; }
+  .mode-btns { display: flex; gap: 6px; }
+  .mode-btn { background: rgba(255,255,255,0.08); border: 2px solid transparent; color: #b0c0d5; font-size: 15px; font-weight: 700; padding: 8px 20px; border-radius: var(--radius); cursor: pointer; transition: all 0.15s; }
+  .mode-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+  .mode-btn.active-prod { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .mode-btn.active-comp { background: var(--comp-accent); color: #fff; border-color: var(--comp-accent); }
+  #nav-status { color: #8aa8cc; font-size: 13px; white-space: nowrap; }
+
+  /* ── Nav row 2: section tabs ── */
+  #nav-tabs { position: fixed; top: var(--nav1-h); left: 0; right: 0; height: var(--nav2-h); background: #232f3e; display: flex; align-items: center; padding: 0 24px; gap: 4px; z-index: 99; border-top: 1px solid rgba(255,255,255,0.07); }
+  .tab-btn { background: transparent; border: none; color: #9ab0cc; font-size: 14px; font-weight: 600; padding: 8px 16px; border-radius: var(--radius); cursor: pointer; white-space: nowrap; }
+  .tab-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  .tab-btn.active { color: #fff; }
+  .tab-btn.active.prod { background: var(--accent); }
+  .tab-btn.active.comp { background: var(--comp-accent); }
+
+  /* ── Pages ── */
+  .page { display: none; max-width: 1000px; margin: 0 auto; padding: calc(var(--nav-total) + 28px) 24px 80px; }
+  .page.active { display: block; }
+
+  /* ── Mode banner ── */
+  .mode-banner { border-radius: 12px; padding: 10px 18px; margin-bottom: 20px; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .mode-banner.prod { background: var(--accent-light); color: var(--accent); border: 1px solid #b8d4f8; }
+  .mode-banner.comp { background: var(--comp-light); color: var(--comp-accent); border: 1px solid #d8b4fe; }
+
+  /* ── Cards ── */
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 24px 28px; margin-bottom: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .card h2 { font-size: 20px; font-weight: 700; margin-bottom: 18px; }
+
+  /* ── Stat tiles ── */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .stat-tile { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 20px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .stat-tile .label { font-size: 13px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .stat-tile .value { font-size: 36px; font-weight: 700; line-height: 1.1; }
+  .stat-tile .value.prod { color: var(--accent); }
+  .stat-tile .value.comp { color: var(--comp-accent); }
+  .stat-tile .sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ── Forms ── */
+  .field { margin-bottom: 20px; }
+  .field label { display: block; font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 7px; }
+  .field input { width: 100%; background: #f7f9fc; border: 2px solid var(--border); border-radius: var(--radius); color: var(--text); padding: 13px 14px; font-size: 16px; }
+  .field input:focus { outline: none; background: #fff; }
+  .field input:focus.prod { border-color: var(--accent); }
+  .field input:focus.comp { border-color: var(--comp-accent); }
+  .field input:focus { border-color: var(--accent); }
+  .field .hint { font-size: 13px; color: var(--text-muted); margin-top: 5px; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 20px; }
+
+  /* ── Buttons ── */
+  .btn { display: inline-flex; align-items: center; gap: 8px; border: none; border-radius: var(--radius); padding: 14px 24px; font-size: 16px; font-weight: 700; cursor: pointer; }
+  .btn:hover { opacity: 0.9; }
+  .btn.prod { background: var(--accent); color: #fff; }
+  .btn.comp { background: var(--comp-accent); color: #fff; }
+  .btn.success { background: var(--success); color: #fff; }
+  .btn.outline-prod { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
+  .btn.outline-prod:hover { background: var(--accent-light); opacity: 1; }
+  .btn.outline-comp { background: transparent; color: var(--comp-accent); border: 2px solid var(--comp-accent); }
+  .btn.outline-comp:hover { background: var(--comp-light); opacity: 1; }
+  .btn.sm { padding: 8px 14px; font-size: 14px; }
+  .btn.icon { background: transparent; color: var(--text-muted); border: 1px solid var(--border); padding: 8px 12px; font-size: 15px; }
+  .btn.icon:hover { opacity: 1; color: var(--accent); border-color: var(--accent); }
+  .btn.icon.del:hover { color: var(--danger); border-color: var(--danger); }
+
+  /* ── Alerts ── */
+  .alert { padding: 14px 18px; border-radius: var(--radius); font-size: 15px; font-weight: 600; margin-bottom: 18px; display: none; }
+  .alert.success { background: #e6f7ee; color: var(--success); border: 1px solid #a8dfc0; }
+  .alert.error { background: #fde8e8; color: var(--danger); border: 1px solid #f5aaaa; }
+
+  /* ── Tables ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th { text-align: left; padding: 11px 12px; background: #f0f4f8; color: var(--text-secondary); font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 2px solid var(--border); }
+  th.num, td.num { text-align: right; }
+  td { padding: 11px 12px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f7f9fc; }
+  .empty-row td { text-align: center; color: var(--text-muted); padding: 24px; }
+  .tot-row td { font-weight: 700; border-top: 2px solid var(--border); }
+
+  /* ── Load rows ── */
+  .load-row { display: flex; align-items: center; justify-content: space-between; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; gap: 12px; flex-wrap: wrap; }
+  .load-row .well-name { font-size: 16px; font-weight: 700; }
+  .load-row .load-meta { font-size: 14px; color: var(--text-secondary); margin-top: 2px; }
+  .load-row .load-vol { font-size: 18px; font-weight: 700; white-space: nowrap; }
+  .load-row .load-vol.prod { color: var(--accent); }
+  .load-row .load-vol.comp { color: var(--comp-accent); }
+  .load-row .load-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* ── Edit card ── */
+  .edit-card { border: 2px solid var(--accent); border-radius: var(--radius); padding: 18px; margin-bottom: 10px; }
+  .edit-card.prod { background: var(--accent-light); border-color: var(--accent); }
+  .edit-card.comp { background: var(--comp-light); border-color: var(--comp-accent); }
+  .edit-card .field { margin-bottom: 12px; }
+  .edit-card .field label { font-size: 13px; }
+  .edit-card .field input { padding: 10px 12px; font-size: 15px; }
+  .edit-actions { display: flex; gap: 10px; margin-top: 4px; }
+
+  /* ── Autocomplete ── */
+  .ac-wrap { position: relative; }
+  .ac-box { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 2px solid var(--accent); border-radius: var(--radius); z-index: 50; max-height: 220px; overflow-y: auto; margin-top: 3px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); display: none; }
+  .ac-box div { padding: 12px 14px; font-size: 16px; cursor: pointer; }
+  .ac-box div:hover { background: var(--accent-light); }
+
+  /* ── Search row ── */
+  .search-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .search-row input { flex: 1; min-width: 200px; background: #f7f9fc; border: 2px solid var(--border); border-radius: var(--radius); color: var(--text); padding: 11px 14px; font-size: 15px; }
+  .search-row input:focus { outline: none; border-color: var(--accent); background: #fff; }
+  .search-row select { background: #f7f9fc; border: 2px solid var(--border); border-radius: var(--radius); color: var(--text); padding: 11px 14px; font-size: 15px; font-weight: 600; }
+  .search-row select:focus { outline: none; border-color: var(--accent); }
+
+  /* ── EOM ── */
+  #eom-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  #eom-table th { padding: 8px; font-size: 12px; }
+  #eom-table input.eom-input { width: 100%; border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px; font-size: 14px; background: #f7f9fc; text-align: center; }
+  #eom-table input.eom-remarks { text-align: left; }
+  #eom-table input.eom-input:focus { outline: none; border-color: var(--accent); background: #fff; }
+  .eom-auto { background: #f0f4f8 !important; color: var(--text); font-weight: 600; text-align: center; font-size: 14px; }
+
+  /* ── Reports ── */
+  .report-controls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 24px; }
+  .report-controls select { background: #f7f9fc; border: 2px solid var(--border); border-radius: var(--radius); color: var(--text); padding: 12px 14px; font-size: 16px; font-weight: 600; min-width: 180px; }
+  #rep-well-body td { padding: 7px 12px; font-size: 14px; }
+
+  /* ── Print ── */
+  @media print {
+    #nav-top, #nav-tabs, .no-print, .btn { display: none !important; }
+    .page { display: none !important; }
+    #page-eom { display: block !important; padding: 0 !important; }
+    #eom-report-card { box-shadow: none !important; border: none !important; }
+    body { background: #fff; }
+    #eom-table input { border: none !important; background: transparent !important; padding: 0 !important; font-size: 13px; }
+    .mode-banner { display: none !important; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div>
-      <h1>Texcom Peak SWD</h1>
-      <p>Load tracker</p>
-    </div>
-    <div id="status">Loading…</div>
-  </header>
 
-  <div class="panel">
-    <h2>Log a load</h2>
-    <div class="grid">
-      <div><label for="f-date">Date</label><input type="date" id="f-date" /></div>
-      <div style="position:relative;">
-        <label for="f-well">Well name</label>
-        <input type="text" id="f-well" placeholder="e.g. Smith 4H" autocomplete="off" />
-        <div id="f-well-suggestions" class="suggestions-box" style="display:none;"></div>
+<!-- NAV ROW 1 -->
+<div id="nav-top">
+  <div class="brand">Texcom Peak <span>SWD</span></div>
+  <div class="mode-btns">
+    <button class="mode-btn active-prod" id="mode-prod-btn" onclick="switchMode('production')">🛢 Production</button>
+    <button class="mode-btn" id="mode-comp-btn" onclick="switchMode('compressor')">⚙️ Compressor</button>
+  </div>
+  <div id="nav-status">Connecting…</div>
+</div>
+
+<!-- NAV ROW 2 -->
+<div id="nav-tabs">
+  <button class="tab-btn active prod" onclick="showPage('dashboard')">📊 Dashboard</button>
+  <button class="tab-btn" onclick="showPage('log')">➕ Log a Load</button>
+  <button class="tab-btn" onclick="showPage('edit')">✏️ View &amp; Edit</button>
+  <button class="tab-btn" onclick="showPage('reports')">📋 Reports</button>
+  <button class="tab-btn" onclick="showPage('eom')">📄 EOM Report</button>
+</div>
+
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <div id="dash-banner" class="mode-banner prod">🛢 Production</div>
+  <div class="stat-grid" id="dash-stats"></div>
+  <div class="card"><h2>Recent Loads</h2><div id="dash-recent"></div></div>
+</div>
+
+<!-- LOG A LOAD -->
+<div class="page" id="page-log">
+  <div class="card">
+    <h2 id="log-title">➕ Log a New Load</h2>
+    <p style="color:var(--text-secondary);margin-bottom:24px;">Fill in the fields below and click Save Load when done.</p>
+    <div id="log-ok" class="alert success">✅ Load saved successfully!</div>
+    <div id="log-err" class="alert error"></div>
+    <div class="form-grid">
+      <div class="field"><label for="f-date">📅 Date</label><input type="date" id="f-date" /></div>
+      <div class="field"><label for="f-well">🛢 Well Name</label>
+        <div class="ac-wrap"><input type="text" id="f-well" placeholder="Start typing a well name…" autocomplete="off" /><div id="f-well-ac" class="ac-box"></div></div>
       </div>
-      <div><label for="f-volume">Volume (bbls)</label><input type="number" id="f-volume" min="0" step="1" placeholder="0" /></div>
-      <div><label for="f-trucking">Trucking company</label><input type="text" id="f-trucking" placeholder="e.g. ABC Trucking" /></div>
-      <div><label for="f-oil">Oil company</label><input type="text" id="f-oil" value="Flywheel" /></div>
+      <div class="field"><label for="f-volume">⚖️ Volume (bbls)</label><input type="number" id="f-volume" min="0" step="1" placeholder="0" /></div>
+      <div class="field"><label for="f-trucking">🚛 Trucking Company</label><input type="text" id="f-trucking" placeholder="e.g. ABC Trucking" /></div>
+      <div class="field"><label for="f-oil">🏭 Oil Company</label><input type="text" id="f-oil" value="Flywheel" /><p class="hint">Defaults to Flywheel — change if needed.</p></div>
     </div>
-    <button id="add-btn" style="margin-top:14px;">Add load</button>
-    <p id="form-error" class="error"></p>
+    <button class="btn success" id="add-btn">✅ Save Load</button>
   </div>
+</div>
 
-  <div class="panel">
-    <div class="summary-row">
-      <h2>Monthly summary by well</h2>
-      <select id="month-select"></select>
-      <button class="secondary" id="export-btn">Download spreadsheet</button>
+<!-- VIEW & EDIT -->
+<div class="page" id="page-edit">
+  <div class="card">
+    <h2>✏️ View &amp; Edit Loads</h2>
+    <div class="search-row">
+      <div class="ac-wrap" style="flex:1;min-width:200px;">
+        <input type="text" id="well-search" placeholder="🔍  Search by well name…" autocomplete="off" />
+        <div id="well-search-ac" class="ac-box"></div>
+      </div>
+      <select id="edit-month-select" style="background:#f7f9fc;border:2px solid var(--border);border-radius:var(--radius);color:var(--text);padding:11px 14px;font-size:15px;font-weight:600;"></select>
     </div>
-    <div class="cards" id="summary-cards"></div>
-    <div class="search-wrap">
-      <input type="text" id="well-search" placeholder="Search wells…" autocomplete="off" />
-      <div id="well-suggestions" class="suggestions-box" style="display:none;"></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Well</th><th class="num">Loads</th><th class="num">Total bbls</th><th></th></tr></thead>
+        <tbody id="edit-well-body"></tbody>
+      </table>
     </div>
-    <table>
-      <thead>
-        <tr><th>Well</th><th class="num">Loads</th><th class="num">Total bbls</th><th></th></tr>
-      </thead>
-      <tbody id="well-table-body"></tbody>
-    </table>
   </div>
+</div>
 
-  <div class="panel">
-    <h2>Total monthly summary</h2>
-    <table>
-      <thead>
-        <tr><th>Month</th><th class="num">Total loads</th><th class="num">Total bbls</th></tr>
-      </thead>
-      <tbody id="totals-table-body"></tbody>
-    </table>
+<!-- REPORTS -->
+<div class="page" id="page-reports">
+  <div class="card no-print">
+    <h2>📋 Monthly Reports</h2>
+    <div class="report-controls">
+      <select id="report-month-select"></select>
+      <button id="print-report-btn" class="btn outline-prod" onclick="window.print()">🖨️ Print Report</button>
+      <button class="btn outline-prod" id="export-btn">📥 Download Spreadsheet</button>
+    </div>
   </div>
+  <div class="stat-grid" id="report-stats"></div>
+  <div class="card"><h3 style="font-size:17px;font-weight:700;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--border);">Summary by Well</h3>
+    <div class="table-wrap" style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);">
+      <table><thead><tr><th>Well</th><th class="num">Loads</th><th class="num">Total bbls</th></tr></thead><tbody id="rep-well-body"></tbody></table>
+    </div>
+  </div>
+  <div class="card"><h3 style="font-size:17px;font-weight:700;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--border);">Loads Per Day</h3>
+    <div class="table-wrap" style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);">
+      <table><thead><tr><th>Date</th><th class="num">Loads</th><th class="num">Total bbls</th></tr></thead><tbody id="rep-day-body-compact"></tbody></table>
+    </div>
+  </div>
+  <div class="card"><h3 style="font-size:17px;font-weight:700;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--border);">Load Detail</h3>
+    <div class="table-wrap" style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);">
+      <table><thead><tr><th>Date</th><th>Well</th><th class="num">bbls</th><th>Trucking</th><th>Oil Co.</th></tr></thead><tbody id="rep-detail-body"></tbody></table>
+    </div>
+  </div>
+  <div class="card"><h3 style="font-size:17px;font-weight:700;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--border);">All-Time Monthly Totals</h3>
+    <div class="table-wrap"><table><thead><tr><th>Month</th><th class="num">Total Loads</th><th class="num">Total bbls</th></tr></thead><tbody id="rep-monthly-body"></tbody></table></div>
+  </div>
+</div>
 
-  <div class="panel">
-    <h2>Recent loads</h2>
-    <div id="recent-list"></div>
+<!-- EOM REPORT -->
+<div class="page" id="page-eom">
+  <div class="card no-print">
+    <h2>📄 EOM Report</h2>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <select id="eom-month-select" style="background:#f7f9fc;border:2px solid var(--border);border-radius:var(--radius);color:var(--text);padding:12px 14px;font-size:16px;font-weight:600;min-width:180px;"></select>
+      <button class="btn outline-prod" id="eom-print-btn" onclick="window.print()">🖨️ Print EOM Report</button>
+      <span id="eom-save-status" style="font-size:14px;color:var(--text-muted);"></span>
+    </div>
+  </div>
+  <div class="card" id="eom-report-card">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div id="eom-header-title" style="font-size:18px;font-weight:800;letter-spacing:1px;"></div>
+      <div id="eom-month-label" style="font-size:15px;font-weight:600;margin-top:4px;color:var(--text-secondary);"></div>
+    </div>
+    <div class="table-wrap">
+      <table id="eom-table">
+        <thead>
+          <tr style="background:#f0f4f8;">
+            <th style="width:70px;">Date</th>
+            <th style="width:80px;text-align:center;">Annu PSI</th>
+            <th style="width:80px;text-align:center;">Inj PSI</th>
+            <th style="width:70px;text-align:center;"># Trucks</th>
+            <th style="width:90px;text-align:center;">Total bbls</th>
+            <th style="width:100px;text-align:center;">Cumulative</th>
+            <th>Remarks</th>
+          </tr>
+        </thead>
+        <tbody id="eom-body"></tbody>
+        <tfoot>
+          <tr style="font-weight:700;border-top:2px solid var(--border);">
+            <td colspan="3"></td>
+            <td style="text-align:center;font-weight:700;" id="eom-tot-trucks"></td>
+            <td style="text-align:center;font-weight:700;">TOTAL</td>
+            <td style="text-align:center;font-weight:700;" id="eom-tot-bbls"></td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script>
-  const SUPABASE_URL = "https://ztqizzpsuzyolqyamvop.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_LN8DPOZ8-gstsMQS8mQ7Sw_xiWmzk5S";
+  var SUPABASE_URL      = "https://ztqizzpsuzyolqyamvop.supabase.co";
+  var SUPABASE_ANON_KEY = "sb_publishable_LN8DPOZ8-gstsMQS8mQ7Sw_xiWmzk5S";
+  var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const statusEl = document.getElementById("status");
-  let loads = [];
-  let editingId = null;
+  var mode = "production"; // or "compressor"
+  var loads = [];
+  var eomEntries = {};
+  var editingId = null;
+  var currentPage = "dashboard";
+
+  function loadsTable()  { return mode === "production" ? "loads" : "compressor_loads"; }
+  function eomTable()    { return mode === "production" ? "eom_entries" : "compressor_eom_entries"; }
+  function accentClass() { return mode === "production" ? "prod" : "comp"; }
+  function accentColor() { return mode === "production" ? "var(--accent)" : "var(--comp-accent)"; }
 
   // ── Helpers ────────────────────────────────────────────────────
-  function fmtDate(d) {
-    const p = d.split("-");
-    return p[1] + "/" + p[2] + "/" + p[0];
-  }
-  function monthKey(d) { return d.slice(0, 7); }
-  function monthLabel(key) {
-    const p = key.split("-");
-    const names = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-    return names[parseInt(p[1], 10) - 1] + " " + p[0];
+  function fmtDate(d) { var p=d.split("-"); return p[1]+"/"+p[2]+"/"+p[0]; }
+  function monthKey(d) { return d.slice(0,7); }
+  function monthLabel(k) {
+    var p=k.split("-");
+    var n=["January","February","March","April","May","June","July","August","September","October","November","December"];
+    return n[parseInt(p[1],10)-1]+" "+p[0];
   }
   function todayStr() {
-    const d = new Date();
-    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+    var d=new Date();
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+  function allWellNames() { return [...new Set(loads.map(function(l){return l.well;}))].sort(); }
+  function getMonthData(key) {
+    var filtered=loads.filter(function(l){return monthKey(l.date)===key;});
+    var wellCount={};
+    filtered.forEach(function(l){
+      if(!wellCount[l.well]) wellCount[l.well]={count:0,volume:0};
+      wellCount[l.well].count++; wellCount[l.well].volume+=Number(l.volume);
+    });
+    return {filtered:filtered,wellCount:wellCount};
   }
 
-  document.getElementById("f-date").value = todayStr();
+  // ── Mode switch ────────────────────────────────────────────────
+  function switchMode(newMode) {
+    mode = newMode;
+    editingId = null;
+    var isProd = mode === "production";
+
+    // mode buttons
+    document.getElementById("mode-prod-btn").className = "mode-btn" + (isProd ? " active-prod" : "");
+    document.getElementById("mode-comp-btn").className = "mode-btn" + (!isProd ? " active-comp" : "");
+
+    // update accent on ac-box (CSS only via JS)
+    document.querySelectorAll(".ac-box").forEach(function(b){ b.style.borderColor = accentColor(); });
+
+    // update EOM print button outline class
+    document.getElementById("eom-print-btn").className = "btn outline-" + accentClass();
+    document.getElementById("print-report-btn").className = "btn outline-" + accentClass();
+
+    loadData();
+  }
+
+  function updateTabStyles() {
+    document.querySelectorAll(".tab-btn").forEach(function(b){ b.classList.remove("active","prod","comp"); });
+    var tabs = document.querySelectorAll(".tab-btn");
+    var pages = ["dashboard","log","edit","reports","eom"];
+    pages.forEach(function(pg, i){
+      if(pg === currentPage){ tabs[i].classList.add("active", accentClass()); }
+    });
+  }
+
+  function updateBanners() {
+    var banner = document.getElementById("dash-banner");
+    var label = mode === "production" ? "🛢 Production" : "⚙️ Compressor Water";
+    banner.textContent = label;
+    banner.className = "mode-banner " + accentClass();
+  }
+
+  // ── Navigation ─────────────────────────────────────────────────
+  function showPage(id) {
+    currentPage = id;
+    document.querySelectorAll(".page").forEach(function(p){p.classList.remove("active");});
+    document.getElementById("page-"+id).classList.add("active");
+    updateTabStyles();
+    if(id==="dashboard") renderDashboard();
+    if(id==="edit") renderEdit();
+    if(id==="reports") renderReports();
+    if(id==="eom") renderEom();
+  }
 
   // ── Supabase ───────────────────────────────────────────────────
   async function loadData() {
-    statusEl.textContent = "Loading…";
-    const { data, error } = await sb.from("loads").select("*").order("date", { ascending: true });
-    if (error) { statusEl.textContent = "Connection error"; console.error(error); return; }
-    loads = data || [];
-    statusEl.textContent = "Connected";
-    render();
+    document.getElementById("nav-status").textContent="Connecting…";
+    var res = await sb.from(loadsTable()).select("*").order("date",{ascending:true});
+    if(res.error){ document.getElementById("nav-status").textContent="⚠️ Error"; console.error(res.error); return; }
+    loads = res.data||[];
+    document.getElementById("nav-status").textContent = (mode==="production"?"🛢 Production":"⚙️ Compressor") + " — ✅ Connected";
+    populateMonthSelects();
+    updateBanners();
+    updateTabStyles();
+    if(currentPage==="dashboard") renderDashboard();
+    else if(currentPage==="edit") renderEdit();
+    else if(currentPage==="reports") renderReports();
+    else if(currentPage==="eom") renderEom();
   }
 
   async function addLoad(load) {
-    const { error } = await sb.from("loads").insert([load]);
-    if (error) { alert("Could not save: " + error.message); return false; }
-    return true;
+    var res = await sb.from(loadsTable()).insert([load]);
+    if(res.error){ alert("Could not save: "+res.error.message); return false; } return true;
   }
-
-  async function updateLoad(id, fields) {
-    const { error } = await sb.from("loads").update(fields).eq("id", id);
-    if (error) { alert("Could not update: " + error.message); return false; }
-    return true;
+  async function updateLoad(id,fields) {
+    var res = await sb.from(loadsTable()).update(fields).eq("id",id);
+    if(res.error){ alert("Could not update: "+res.error.message); return false; } return true;
   }
-
   async function deleteLoad(id) {
-    const { error } = await sb.from("loads").delete().eq("id", id);
-    if (error) { alert("Could not delete: " + error.message); return false; }
-    return true;
+    var res = await sb.from(loadsTable()).delete().eq("id",id);
+    if(res.error){ alert("Could not delete: "+res.error.message); return false; } return true;
   }
 
-  // ── Month dropdown ─────────────────────────────────────────────
-  function populateMonths() {
-    const sel = document.getElementById("month-select");
-    const keys = {};
-    loads.forEach((l) => { keys[monthKey(l.date)] = true; });
-    const current = monthKey(todayStr());
-    keys[current] = true;
-    const sorted = Object.keys(keys).sort().reverse();
-    const prev = sel.value;
-    sel.innerHTML = "";
-    sorted.forEach((k) => {
-      const o = document.createElement("option");
-      o.value = k; o.textContent = monthLabel(k);
-      sel.appendChild(o);
-    });
-    sel.value = sorted.includes(prev) ? prev : current;
-  }
-
-  function getMonthWellData(key) {
-    const filtered = loads.filter((l) => monthKey(l.date) === key);
-    const wellCount = {};
-    filtered.forEach((l) => {
-      if (!wellCount[l.well]) wellCount[l.well] = { count:0, volume:0 };
-      wellCount[l.well].count++;
-      wellCount[l.well].volume += Number(l.volume);
-    });
-    return { filtered, wellCount };
-  }
-
-  // ── Search ─────────────────────────────────────────────────────
-  function setupSearch() {
-    // ── Well name autocomplete on the log form ──
-    const wellInput = document.getElementById("f-well");
-    const wellBox = document.getElementById("f-well-suggestions");
-
-    function closeWellSuggestions() { wellBox.style.display = "none"; wellBox.innerHTML = ""; }
-
-    wellInput.addEventListener("input", () => {
-      const val = wellInput.value.trim().toLowerCase();
-      closeWellSuggestions();
-      if (!val) return;
-      const allWells = [...new Set(loads.map((l) => l.well))].sort();
-      const matches = allWells.filter((w) => w.toLowerCase().includes(val)).slice(0, 10);
-      if (matches.length) {
-        matches.forEach((w) => {
-          const item = document.createElement("div");
-          item.textContent = w;
-          item.addEventListener("click", () => { wellInput.value = w; closeWellSuggestions(); });
-          wellBox.appendChild(item);
-        });
-        wellBox.style.display = "block";
-      }
-    });
-
-    wellInput.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") closeWellSuggestions();
-    });
-
-    document.addEventListener("click", (e) => {
-      if (!wellInput.contains(e.target) && !wellBox.contains(e.target)) closeWellSuggestions();
-    });
-
-    // ── Well search filter on summary table ──
-    const input = document.getElementById("well-search");
-    const box = document.getElementById("well-suggestions");
-
-    function closeSuggestions() { box.style.display = "none"; box.innerHTML = ""; }
-
-    input.addEventListener("input", () => {
-      const val = input.value.trim().toLowerCase();
-      closeSuggestions();
-      renderSummary();
-      if (!val) return;
-      const allWells = [...new Set(loads.map((l) => l.well))].sort();
-      const matches = allWells.filter((w) => w.toLowerCase().includes(val)).slice(0, 10);
-      if (matches.length && matches.length < allWells.length) {
-        matches.forEach((w) => {
-          const item = document.createElement("div");
-          item.textContent = w;
-          item.addEventListener("click", () => { input.value = w; closeSuggestions(); renderSummary(); });
-          box.appendChild(item);
-        });
-        box.style.display = "block";
-      }
-    });
-
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") { input.value = ""; closeSuggestions(); renderSummary(); }
-    });
-
-    document.addEventListener("click", (e) => {
-      if (!input.contains(e.target) && !box.contains(e.target)) closeSuggestions();
+  // ── Month selects ──────────────────────────────────────────────
+  function populateMonthSelects() {
+    var keys={};
+    loads.forEach(function(l){keys[monthKey(l.date)]=true;});
+    var cur=monthKey(todayStr()); keys[cur]=true;
+    var sorted=Object.keys(keys).sort().reverse();
+    ["edit-month-select","report-month-select","eom-month-select"].forEach(function(id){
+      var sel=document.getElementById(id);
+      var prev=sel.value; sel.innerHTML="";
+      sorted.forEach(function(k){var o=document.createElement("option");o.value=k;o.textContent=monthLabel(k);sel.appendChild(o);});
+      sel.value=sorted.includes(prev)?prev:cur;
     });
   }
 
-  // ── Render summary ─────────────────────────────────────────────
-  function renderSummary() {
-    const key = document.getElementById("month-select").value;
-    const { filtered, wellCount } = getMonthWellData(key);
-    const totalVolume = filtered.reduce((s, l) => s + Number(l.volume), 0);
-    const wellNames = Object.keys(wellCount);
+  // ── Dashboard ──────────────────────────────────────────────────
+  function renderDashboard() {
+    var cur=monthKey(todayStr());
+    var d=getMonthData(cur);
+    var totalVol=d.filtered.reduce(function(s,l){return s+Number(l.volume);},0);
+    var days=new Set(d.filtered.map(function(l){return l.date;})).size;
+    var ac=accentClass();
+    document.getElementById("dash-stats").innerHTML=
+      '<div class="stat-tile"><div class="label">Loads This Month</div><div class="value '+ac+'">'+d.filtered.length+'</div><div class="sub">'+monthLabel(cur)+'</div></div>'+
+      '<div class="stat-tile"><div class="label">Total bbls This Month</div><div class="value '+ac+'">'+totalVol.toLocaleString()+'</div><div class="sub">barrels disposed</div></div>'+
+      '<div class="stat-tile"><div class="label">Wells This Month</div><div class="value '+ac+'">'+Object.keys(d.wellCount).length+'</div><div class="sub">unique wells</div></div>'+
+      '<div class="stat-tile"><div class="label">Days Active</div><div class="value '+ac+'">'+days+'</div><div class="sub">days with loads</div></div>';
+    var container=document.getElementById("dash-recent");
+    var sorted=loads.slice().sort(function(a,b){return b.date>a.date?1:-1;}).slice(0,10);
+    if(sorted.length===0){container.innerHTML='<p style="color:var(--text-muted);font-size:15px;">No loads logged yet.</p>';return;}
+    container.innerHTML="";
+    sorted.forEach(function(l){
+      var div=document.createElement("div"); div.className="load-row";
+      var meta=fmtDate(l.date)+(l.trucking?" · "+l.trucking:"")+(l.oil?" · "+l.oil:"");
+      div.innerHTML='<div><div class="well-name">'+l.well+'</div><div class="load-meta">'+meta+'</div></div><div class="load-vol '+ac+'">'+Number(l.volume).toLocaleString()+' bbls</div>';
+      container.appendChild(div);
+    });
+  }
 
-    document.getElementById("summary-cards").innerHTML = `
-      <div class="card"><p class="label">Total loads</p><p class="value">${filtered.length}</p></div>
-      <div class="card"><p class="label">Total volume (bbls)</p><p class="value">${totalVolume.toLocaleString()}</p></div>
-      <div class="card"><p class="label">Wells received from</p><p class="value">${wellNames.length}</p></div>
-    `;
-
-    const tbody = document.getElementById("well-table-body");
-    tbody.innerHTML = "";
-    if (wellNames.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4" class="empty">No loads logged for this month.</td></tr>`;
-      return;
+  // ── Log a Load ─────────────────────────────────────────────────
+  document.getElementById("f-date").value=todayStr();
+  document.getElementById("add-btn").addEventListener("click",async function(){
+    var date=document.getElementById("f-date").value;
+    var well=document.getElementById("f-well").value.trim();
+    var volume=parseFloat(document.getElementById("f-volume").value);
+    var trucking=document.getElementById("f-trucking").value.trim();
+    var oil=document.getElementById("f-oil").value.trim();
+    var errEl=document.getElementById("log-err");
+    var okEl=document.getElementById("log-ok");
+    errEl.style.display="none"; okEl.style.display="none";
+    if(!date||!well||isNaN(volume)||volume<0){
+      errEl.textContent="⚠️ Please fill in Date, Well Name, and Volume before saving.";
+      errEl.style.display="block"; return;
     }
-
-    const searchVal = (document.getElementById("well-search").value || "").trim().toLowerCase();
-    const sorted = wellNames.sort((a, b) => wellCount[b].volume - wellCount[a].volume);
-    const visible = searchVal ? sorted.filter((n) => n.toLowerCase().includes(searchVal)) : sorted;
-
-    if (visible.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4" class="empty">No wells match your search.</td></tr>`;
-      return;
-    }
-
-    visible.forEach((name) => {
-      // Summary row
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${name}</td>
-        <td class="num">${wellCount[name].count}</td>
-        <td class="num">${wellCount[name].volume.toLocaleString()}</td>
-        <td class="num"><button class="icon-btn expand-btn" title="Edit loads">✎</button></td>
-      `;
-      tbody.appendChild(tr);
-
-      // Expandable detail rows
-      const detailTr = document.createElement("tr");
-      detailTr.style.display = "none";
-      const detailTd = document.createElement("td");
-      detailTd.colSpan = 4;
-      detailTd.style.padding = "0 0 8px 12px";
-      const detailList = document.createElement("div");
-      detailList.style.cssText = "display:flex;flex-direction:column;gap:6px;padding:8px 0;";
-
-      const wellLoads = filtered.filter((l) => l.well === name).sort((a, b) => a.date < b.date ? -1 : 1);
-
-      function renderWellList() {
-        detailList.innerHTML = "";
-        wellLoads.forEach((l) => {
-          const item = document.createElement("div");
-          if (editingId === l.id) {
-            item.className = "edit-row";
-            item.innerHTML = `
-              <div class="edit-grid">
-                <div><label>Date</label><input type="date" class="e-date" value="${l.date}" /></div>
-                <div><label>Well name</label><input type="text" class="e-well" value="${l.well.replace(/"/g,'&quot;')}" /></div>
-                <div><label>Volume (bbls)</label><input type="number" min="0" step="1" class="e-volume" value="${l.volume}" /></div>
-                <div><label>Trucking company</label><input type="text" class="e-trucking" value="${(l.trucking||'').replace(/"/g,'&quot;')}" /></div>
-                <div><label>Oil company</label><input type="text" class="e-oil" value="${(l.oil||'').replace(/"/g,'&quot;')}" /></div>
-              </div>
-              <div class="edit-actions">
-                <button class="save-btn">Save</button>
-                <button class="secondary cancel-btn">Cancel</button>
-              </div>`;
-            item.querySelector(".save-btn").addEventListener("click", async () => {
-              const date = item.querySelector(".e-date").value;
-              const well = item.querySelector(".e-well").value.trim();
-              const volume = parseFloat(item.querySelector(".e-volume").value);
-              const trucking = item.querySelector(".e-trucking").value.trim();
-              const oil = item.querySelector(".e-oil").value.trim();
-              if (!date || !well || isNaN(volume) || volume < 0) { alert("Enter a date, well name, and volume."); return; }
-              const ok = await updateLoad(l.id, { date, well, volume, trucking, oil });
-              if (ok) { editingId = null; await loadData(); }
-            });
-            item.querySelector(".cancel-btn").addEventListener("click", () => { editingId = null; renderWellList(); });
-          } else {
-            item.className = "recent-row";
-            const meta = [fmtDate(l.date)];
-            if (l.trucking) meta.push(l.trucking);
-            if (l.oil) meta.push(l.oil);
-            item.innerHTML = `
-              <div><span class="well">${l.well}</span> <span class="meta">· ${meta.join(" · ")}</span></div>
-              <div class="right">
-                <span class="vol">${Number(l.volume).toLocaleString()} bbls</span>
-                <button class="icon-btn edit-btn" title="Edit">✎</button>
-                <button class="icon-btn del-btn" title="Delete">✕</button>
-              </div>`;
-            item.querySelector(".edit-btn").addEventListener("click", () => { editingId = l.id; renderWellList(); });
-            item.querySelector(".del-btn").addEventListener("click", async () => {
-              if (!confirm("Delete this load?")) return;
-              const ok = await deleteLoad(l.id);
-              if (ok) { loads = loads.filter((x) => x.id !== l.id); render(); }
-            });
-          }
-          detailList.appendChild(item);
-        });
-      }
-
-      renderWellList();
-      detailTd.appendChild(detailList);
-      detailTr.appendChild(detailTd);
-      tbody.appendChild(detailTr);
-
-      tr.querySelector(".expand-btn").addEventListener("click", () => {
-        const open = detailTr.style.display !== "none";
-        detailTr.style.display = open ? "none" : "table-row";
-        tr.querySelector(".expand-btn").textContent = open ? "✎" : "▲";
-      });
-    });
-  }
-
-  // ── Render totals ──────────────────────────────────────────────
-  function renderTotals() {
-    const tbody = document.getElementById("totals-table-body");
-    tbody.innerHTML = "";
-    const monthMap = {};
-    loads.forEach((l) => {
-      const k = monthKey(l.date);
-      if (!monthMap[k]) monthMap[k] = { count:0, volume:0 };
-      monthMap[k].count++;
-      monthMap[k].volume += Number(l.volume);
-    });
-    const keys = Object.keys(monthMap).sort().reverse();
-    if (keys.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="3" class="empty">No loads logged yet.</td></tr>`;
-      return;
-    }
-    keys.forEach((k) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${monthLabel(k)}</td><td class="num">${monthMap[k].count}</td><td class="num">${monthMap[k].volume.toLocaleString()}</td>`;
-      tbody.appendChild(tr);
-    });
-  }
-
-  // ── Render recent loads ────────────────────────────────────────
-  function renderRecent() {
-    const container = document.getElementById("recent-list");
-    container.innerHTML = "";
-    const sorted = loads.slice().sort((a, b) => b.date > a.date ? 1 : -1).slice(0, 15);
-    if (sorted.length === 0) {
-      container.innerHTML = `<p style="font-size:13px;color:var(--text-muted);">No loads logged yet.</p>`;
-      return;
-    }
-    sorted.forEach((l) => {
-      const row = document.createElement("div");
-      if (editingId === l.id) {
-        row.className = "edit-row";
-        row.innerHTML = `
-          <div class="edit-grid">
-            <div><label>Date</label><input type="date" class="e-date" value="${l.date}" /></div>
-            <div><label>Well name</label><input type="text" class="e-well" value="${l.well.replace(/"/g,'&quot;')}" /></div>
-            <div><label>Volume (bbls)</label><input type="number" min="0" step="1" class="e-volume" value="${l.volume}" /></div>
-            <div><label>Trucking company</label><input type="text" class="e-trucking" value="${(l.trucking||'').replace(/"/g,'&quot;')}" /></div>
-            <div><label>Oil company</label><input type="text" class="e-oil" value="${(l.oil||'').replace(/"/g,'&quot;')}" /></div>
-          </div>
-          <div class="edit-actions">
-            <button class="save-btn">Save</button>
-            <button class="secondary cancel-btn">Cancel</button>
-          </div>`;
-        row.querySelector(".save-btn").addEventListener("click", async () => {
-          const date = row.querySelector(".e-date").value;
-          const well = row.querySelector(".e-well").value.trim();
-          const volume = parseFloat(row.querySelector(".e-volume").value);
-          const trucking = row.querySelector(".e-trucking").value.trim();
-          const oil = row.querySelector(".e-oil").value.trim();
-          if (!date || !well || isNaN(volume) || volume < 0) { alert("Enter a date, well name, and volume."); return; }
-          const ok = await updateLoad(l.id, { date, well, volume, trucking, oil });
-          if (ok) { editingId = null; await loadData(); }
-        });
-        row.querySelector(".cancel-btn").addEventListener("click", () => { editingId = null; renderRecent(); });
-      } else {
-        row.className = "recent-row";
-        const meta = [fmtDate(l.date)];
-        if (l.trucking) meta.push(l.trucking);
-        if (l.oil) meta.push(l.oil);
-        row.innerHTML = `
-          <div><span class="well">${l.well}</span> <span class="meta">· ${meta.join(" · ")}</span></div>
-          <div class="right">
-            <span class="vol">${Number(l.volume).toLocaleString()} bbls</span>
-            <button class="icon-btn edit-btn" title="Edit">✎</button>
-            <button class="icon-btn del-btn" title="Delete">✕</button>
-          </div>`;
-        row.querySelector(".edit-btn").addEventListener("click", () => { editingId = l.id; renderRecent(); });
-        row.querySelector(".del-btn").addEventListener("click", async () => {
-          if (!confirm("Delete this load?")) return;
-          const ok = await deleteLoad(l.id);
-          if (ok) { loads = loads.filter((x) => x.id !== l.id); render(); }
-        });
-      }
-      container.appendChild(row);
-    });
-  }
-
-  // ── Master render ──────────────────────────────────────────────
-  function render() {
-    populateMonths();
-    renderSummary();
-    renderTotals();
-    renderRecent();
-  }
-
-  // ── Excel export ───────────────────────────────────────────────
-  async function exportXLSX() {
-    const key = document.getElementById("month-select").value;
-    const label = monthLabel(key);
-    const { filtered, wellCount } = getMonthWellData(key);
-    const wellNames = Object.keys(wellCount).sort((a, b) => wellCount[b].volume - wellCount[a].volume);
-    const totalLoads = filtered.length;
-    const totalVolume = filtered.reduce((s, l) => s + Number(l.volume), 0);
-
-    const workbook = new ExcelJS.Workbook();
-    const baseFont = { name:"Calibri", size:14, bold:true, color:{ argb:"FF000000" } };
-    const center = { horizontal:"center", vertical:"middle" };
-    const left   = { horizontal:"left",   vertical:"middle" };
-    const hdrBorder = { bottom:{ style:"medium", color:{ argb:"FF000000" } } };
-
-    // Sheet 1 — Monthly Summary
-    const ws1 = workbook.addWorksheet("Monthly Summary");
-    ws1.columns = [{ width:42 },{ width:18 },{ width:20 }];
-
-    ws1.mergeCells("A1:C1");
-    Object.assign(ws1.getCell("A1"), { value:"Texcom Peak SWD — Monthly Load Summary", font:{ ...baseFont, size:16 }, alignment:center });
-    ws1.getRow(1).height = 28;
-
-    ws1.mergeCells("A2:C2");
-    Object.assign(ws1.getCell("A2"), { value:label, font:baseFont, alignment:center });
-    ws1.getRow(2).height = 22;
-
-    ws1.addRow([]);
-
-    const uniqueDays = new Set(filtered.map((l) => l.date)).size;
-    const loadsPerDay = uniqueDays > 0 ? (totalLoads / uniqueDays).toFixed(1) : "0.0";
-
-    const sHdr = ws1.addRow(["Total Loads", "Total Volume (bbls)", "Wells Received From"]);
-    sHdr.height = 22;
-    sHdr.eachCell((c) => { c.font = baseFont; c.alignment = center; c.border = hdrBorder; });
-
-    const sVals = ws1.addRow([totalLoads, totalVolume, wellNames.length]);
-    sVals.height = 22;
-    sVals.eachCell((c) => { c.font = baseFont; c.alignment = center; });
-
-    ws1.addRow([]);
-
-    const wHdr = ws1.addRow(["Well", "Number of Loads", "Total Volume (bbls)"]);
-    wHdr.height = 22;
-    wHdr.eachCell((c, col) => { c.font = baseFont; c.alignment = col === 1 ? left : center; c.border = hdrBorder; });
-
-    wellNames.forEach((name, i) => {
-      const row = ws1.addRow([name, wellCount[name].count, wellCount[name].volume]);
-      row.height = 20;
-      row.eachCell((c, col) => {
-        c.font = baseFont;
-        c.alignment = col === 1 ? left : center;
-      });
-    });
-
-    ws1.addRow([]);
-    const totRow = ws1.addRow(["TOTAL", totalLoads, totalVolume]);
-    totRow.height = 22;
-    totRow.eachCell((c, col) => { c.font = { ...baseFont, size:15 }; c.alignment = col === 1 ? left : center; c.border = { top:{ style:"medium", color:{ argb:"FF000000" } } }; });
-
-    // Sheet 2 — Load Detail
-    const ws2 = workbook.addWorksheet("Load Detail");
-    ws2.columns = [{ width:16 },{ width:42 },{ width:20 },{ width:28 },{ width:28 }];
-
-    ws2.mergeCells("A1:E1");
-    Object.assign(ws2.getCell("A1"), { value:"Texcom Peak SWD — Load Detail — " + label, font:{ ...baseFont, size:16 }, alignment:center });
-    ws2.getRow(1).height = 28;
-    ws2.addRow([]);
-
-    const dHdr = ws2.addRow(["Date", "Well", "Volume (bbls)", "Trucking Company", "Oil Company"]);
-    dHdr.height = 22;
-    dHdr.eachCell((c, col) => { c.font = baseFont; c.alignment = col === 2 ? left : center; c.border = hdrBorder; });
-
-    filtered.slice().sort((a, b) => a.date < b.date ? -1 : 1).forEach((l, i) => {
-      const row = ws2.addRow([l.date, l.well, Number(l.volume), l.trucking || "", l.oil || ""]);
-      row.height = 20;
-      row.eachCell((c, col) => {
-        c.font = baseFont;
-        c.alignment = col === 2 ? left : center;
-      });
-    });
-
-    // Sheet 3 — Loads Per Day
-    const ws3 = workbook.addWorksheet("Loads Per Day");
-    ws3.columns = [{ width:20 },{ width:18 },{ width:20 }];
-
-    ws3.mergeCells("A1:C1");
-    Object.assign(ws3.getCell("A1"), { value:"Texcom Peak SWD — Loads Per Day — " + label, font:{ ...baseFont, size:16 }, alignment:center });
-    ws3.getRow(1).height = 28;
-    ws3.addRow([]);
-
-    const lpHdr = ws3.addRow(["Date", "Loads", "Total bbls"]);
-    lpHdr.height = 22;
-    lpHdr.eachCell((c) => { c.font = baseFont; c.alignment = center; c.border = hdrBorder; });
-
-    const dayMap = {};
-    filtered.forEach((l) => {
-      if (!dayMap[l.date]) dayMap[l.date] = { count:0, volume:0 };
-      dayMap[l.date].count++;
-      dayMap[l.date].volume += Number(l.volume);
-    });
-    Object.keys(dayMap).sort().forEach((date) => {
-      const row = ws3.addRow([date, dayMap[date].count, dayMap[date].volume]);
-      row.height = 20;
-      row.eachCell((c) => { c.font = baseFont; c.alignment = center; });
-    });
-
-    ws3.addRow([]);
-    const lpTot = ws3.addRow(["TOTAL", totalLoads, totalVolume]);
-    lpTot.height = 22;
-    lpTot.eachCell((c) => { c.font = { ...baseFont, size:15 }; c.alignment = center; c.border = { top:{ style:"medium", color:{ argb:"FF000000" } } }; });
-
-    const buf = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buf], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "Texcom Peak SWD - " + label + ".xlsx";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-
-  // ── Event listeners ────────────────────────────────────────────
-  document.getElementById("month-select").addEventListener("change", renderSummary);
-  document.getElementById("export-btn").addEventListener("click", exportXLSX);
-
-  document.getElementById("add-btn").addEventListener("click", async () => {
-    const date     = document.getElementById("f-date").value;
-    const well     = document.getElementById("f-well").value.trim();
-    const volume   = parseFloat(document.getElementById("f-volume").value);
-    const trucking = document.getElementById("f-trucking").value.trim();
-    const oil      = document.getElementById("f-oil").value.trim();
-    const errEl    = document.getElementById("form-error");
-
-    if (!date || !well || isNaN(volume) || volume < 0) {
-      errEl.textContent = "Enter a date, well name, and volume.";
-      errEl.style.display = "block";
-      return;
-    }
-    errEl.style.display = "none";
-
-    const ok = await addLoad({ date, well, volume, trucking, oil });
-    if (ok) {
-      document.getElementById("f-well").value = "";
-      document.getElementById("f-volume").value = "";
-      document.getElementById("f-trucking").value = "";
-      document.getElementById("f-oil").value = "Flywheel";
+    document.getElementById("add-btn").textContent="Saving…";
+    var ok=await addLoad({date:date,well:well,volume:volume,trucking:trucking,oil:oil});
+    document.getElementById("add-btn").textContent="✅ Save Load";
+    if(ok){
+      okEl.style.display="block";
+      document.getElementById("f-well").value="";
+      document.getElementById("f-volume").value="";
+      document.getElementById("f-trucking").value="";
+      document.getElementById("f-oil").value="Flywheel";
+      document.getElementById("f-well-ac").style.display="none";
       await loadData();
+      setTimeout(function(){okEl.style.display="none";},3000);
     }
   });
 
-  // ── Init ───────────────────────────────────────────────────────
-  setupSearch();
+  // ── View & Edit ────────────────────────────────────────────────
+  function renderEdit() {
+    var key=document.getElementById("edit-month-select").value;
+    var search=(document.getElementById("well-search").value||"").trim().toLowerCase();
+    var d=getMonthData(key);
+    var tbody=document.getElementById("edit-well-body");
+    tbody.innerHTML="";
+    var names=Object.keys(d.wellCount).sort(function(a,b){return d.wellCount[b].volume-d.wellCount[a].volume;});
+    if(search) names=names.filter(function(n){return n.toLowerCase().includes(search);});
+    if(names.length===0){tbody.innerHTML='<tr class="empty-row"><td colspan="4">No wells found for this month.</td></tr>';return;}
+    names.forEach(function(name){
+      var safeId=name.replace(/[^a-z0-9]/gi,"_");
+      var tr=document.createElement("tr");
+      tr.innerHTML='<td><strong>'+name+'</strong></td><td class="num">'+d.wellCount[name].count+'</td><td class="num">'+d.wellCount[name].volume.toLocaleString()+'</td><td class="num"><button class="btn icon" id="toggle-'+safeId+'">✎ Edit</button></td>';
+      tbody.appendChild(tr);
+      var detailTr=document.createElement("tr");
+      detailTr.id="detail-"+safeId; detailTr.style.display="none";
+      var detailTd=document.createElement("td"); detailTd.colSpan=4; detailTd.style.padding="0 0 12px 16px";
+      var wellLoads=d.filtered.filter(function(l){return l.well===name;}).sort(function(a,b){return a.date<b.date?-1:1;});
+      detailTd.appendChild(buildWellLoadList(wellLoads));
+      detailTr.appendChild(detailTd); tbody.appendChild(detailTr);
+      document.getElementById("toggle-"+safeId).addEventListener("click",function(){
+        var row=document.getElementById("detail-"+safeId);
+        var open=row.style.display!=="none";
+        row.style.display=open?"none":"table-row";
+        this.textContent=open?"✎ Edit":"▲ Close";
+      });
+    });
+  }
+
+  function buildWellLoadList(wellLoads) {
+    var ac=accentClass();
+    var wrap=document.createElement("div");
+    wrap.style.cssText="display:flex;flex-direction:column;gap:8px;padding:10px 0 4px;";
+    wellLoads.forEach(function(l){
+      var item=document.createElement("div");
+      if(editingId===l.id){
+        item.className="edit-card "+ac;
+        item.innerHTML='<div class="form-grid">'+
+          '<div class="field"><label>Date</label><input type="date" class="e-date" value="'+l.date+'"/></div>'+
+          '<div class="field"><label>Well name</label><input type="text" class="e-well" value="'+l.well.replace(/"/g,"&quot;")+'" /></div>'+
+          '<div class="field"><label>Volume (bbls)</label><input type="number" min="0" step="1" class="e-volume" value="'+l.volume+'"/></div>'+
+          '<div class="field"><label>Trucking company</label><input type="text" class="e-trucking" value="'+(l.trucking||"").replace(/"/g,"&quot;")+'" /></div>'+
+          '<div class="field"><label>Oil company</label><input type="text" class="e-oil" value="'+(l.oil||"").replace(/"/g,"&quot;")+'" /></div>'+
+          '</div><div class="edit-actions"><button class="btn success sm save-btn">✅ Save</button><button class="btn sm outline-'+ac+' cancel-btn">Cancel</button></div>';
+        item.querySelector(".save-btn").addEventListener("click",async function(){
+          var date=item.querySelector(".e-date").value;
+          var well=item.querySelector(".e-well").value.trim();
+          var volume=parseFloat(item.querySelector(".e-volume").value);
+          var trucking=item.querySelector(".e-trucking").value.trim();
+          var oil=item.querySelector(".e-oil").value.trim();
+          if(!date||!well||isNaN(volume)||volume<0){alert("Please fill in all required fields.");return;}
+          var ok=await updateLoad(l.id,{date:date,well:well,volume:volume,trucking:trucking,oil:oil});
+          if(ok){editingId=null;await loadData();renderEdit();}
+        });
+        item.querySelector(".cancel-btn").addEventListener("click",function(){editingId=null;renderEdit();});
+      } else {
+        item.className="load-row";
+        var meta=fmtDate(l.date)+(l.trucking?" · "+l.trucking:"")+(l.oil?" · "+l.oil:"");
+        item.innerHTML='<div><div class="well-name">'+l.well+'</div><div class="load-meta">'+meta+'</div></div>'+
+          '<div class="load-actions"><div class="load-vol '+ac+'">'+Number(l.volume).toLocaleString()+' bbls</div>'+
+          '<button class="btn icon edit-btn">✎</button><button class="btn icon del del-btn">🗑</button></div>';
+        item.querySelector(".edit-btn").addEventListener("click",function(){editingId=l.id;renderEdit();});
+        item.querySelector(".del-btn").addEventListener("click",async function(){
+          if(!confirm("Delete this load? This cannot be undone.")) return;
+          var ok=await deleteLoad(l.id);
+          if(ok){loads=loads.filter(function(x){return x.id!==l.id;});renderEdit();}
+        });
+      }
+      wrap.appendChild(item);
+    });
+    return wrap;
+  }
+
+  document.getElementById("edit-month-select").addEventListener("change",renderEdit);
+
+  // ── Reports ────────────────────────────────────────────────────
+  function renderReports() {
+    var key=document.getElementById("report-month-select").value;
+    var d=getMonthData(key);
+    var totalVol=d.filtered.reduce(function(s,l){return s+Number(l.volume);},0);
+    var wellNames=Object.keys(d.wellCount).sort(function(a,b){return d.wellCount[b].volume-d.wellCount[a].volume;});
+    var days=new Set(d.filtered.map(function(l){return l.date;})).size;
+    var ac=accentClass();
+    document.getElementById("report-stats").innerHTML=
+      '<div class="stat-tile"><div class="label">Total Loads</div><div class="value '+ac+'">'+d.filtered.length+'</div></div>'+
+      '<div class="stat-tile"><div class="label">Total Volume (bbls)</div><div class="value '+ac+'">'+totalVol.toLocaleString()+'</div></div>'+
+      '<div class="stat-tile"><div class="label">Wells Received From</div><div class="value '+ac+'">'+wellNames.length+'</div></div>'+
+      '<div class="stat-tile"><div class="label">Days Active</div><div class="value '+ac+'">'+days+'</div></div>';
+    var wBody=document.getElementById("rep-well-body"); wBody.innerHTML="";
+    if(wellNames.length===0){wBody.innerHTML='<tr class="empty-row"><td colspan="3">No loads for this month.</td></tr>';}
+    else {
+      wellNames.forEach(function(name){
+        var tr=document.createElement("tr");
+        tr.innerHTML='<td>'+name+'</td><td class="num">'+d.wellCount[name].count+'</td><td class="num">'+d.wellCount[name].volume.toLocaleString()+'</td>';
+        wBody.appendChild(tr);
+      });
+      var tot=document.createElement("tr"); tot.className="tot-row";
+      tot.innerHTML='<td>TOTAL</td><td class="num">'+d.filtered.length+'</td><td class="num">'+totalVol.toLocaleString()+'</td>';
+      wBody.appendChild(tot);
+    }
+    var dayMap={};
+    d.filtered.forEach(function(l){
+      if(!dayMap[l.date]) dayMap[l.date]={count:0,volume:0};
+      dayMap[l.date].count++; dayMap[l.date].volume+=Number(l.volume);
+    });
+    var dBody=document.getElementById("rep-day-body"); if(dBody) dBody.innerHTML="";
+    var dBodyCompact=document.getElementById("rep-day-body-compact"); dBodyCompact.innerHTML="";
+    var detailBody=document.getElementById("rep-detail-body"); detailBody.innerHTML="";
+    var dayKeys=Object.keys(dayMap).sort();
+    if(dayKeys.length===0){
+      dBodyCompact.innerHTML='<tr class="empty-row"><td colspan="3">No loads for this month.</td></tr>';
+      detailBody.innerHTML='<tr class="empty-row"><td colspan="5">No loads for this month.</td></tr>';
+    } else {
+      dayKeys.forEach(function(date){
+        var tr=document.createElement("tr");
+        tr.innerHTML='<td>'+fmtDate(date)+'</td><td class="num">'+dayMap[date].count+'</td><td class="num">'+dayMap[date].volume.toLocaleString()+'</td>';
+        dBodyCompact.appendChild(tr);
+      });
+      d.filtered.slice().sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(l){
+        var tr=document.createElement("tr");
+        tr.innerHTML='<td>'+fmtDate(l.date)+'</td><td>'+l.well+'</td><td class="num">'+Number(l.volume).toLocaleString()+'</td><td>'+(l.trucking||'')+'</td><td>'+(l.oil||'')+'</td>';
+        detailBody.appendChild(tr);
+      });
+    }
+    var monthMap={};
+    loads.forEach(function(l){ var k=monthKey(l.date); if(!monthMap[k]) monthMap[k]={count:0,volume:0}; monthMap[k].count++; monthMap[k].volume+=Number(l.volume); });
+    var mBody=document.getElementById("rep-monthly-body"); mBody.innerHTML="";
+    Object.keys(monthMap).sort().reverse().forEach(function(k){ var tr=document.createElement("tr"); tr.innerHTML='<td>'+monthLabel(k)+'</td><td class="num">'+monthMap[k].count+'</td><td class="num">'+monthMap[k].volume.toLocaleString()+'</td>'; mBody.appendChild(tr); });
+  }
+
+  document.getElementById("report-month-select").addEventListener("change",renderReports);
+
+  // ── EOM ────────────────────────────────────────────────────────
+  async function loadEomEntries(mk) {
+    var res=await sb.from(eomTable()).select("*").eq("month",mk);
+    if(res.error){console.error(res.error);return;}
+    eomEntries={};
+    (res.data||[]).forEach(function(r){eomEntries[r.date]=r;});
+  }
+
+  async function saveEomEntry(mk,date,injPsi,remarks) {
+    var statusEl=document.getElementById("eom-save-status");
+    statusEl.textContent="Saving…";
+    var existing=eomEntries[date];
+    var res;
+    if(existing){res=await sb.from(eomTable()).update({inj_psi:injPsi,remarks:remarks}).eq("id",existing.id);}
+    else {res=await sb.from(eomTable()).insert([{month:mk,date:date,inj_psi:injPsi,remarks:remarks}]);}
+    if(res.error){statusEl.textContent="⚠️ Save failed";console.error(res.error);return;}
+    statusEl.textContent="✅ Saved";
+    await loadEomEntries(mk);
+    setTimeout(function(){statusEl.textContent="";},2000);
+  }
+
+  async function renderEom() {
+    var key=document.getElementById("eom-month-select").value;
+    if(!key) return;
+    var headerTitle = mode==="production"
+      ? "TEXCOM — PEAK #1 SWD &nbsp;&nbsp; DAILY LOG P/W &nbsp;&nbsp; Permit # 43177"
+      : "TEXCOM — PEAK #1 SWD &nbsp;&nbsp; COMPRESSOR WATER &nbsp;&nbsp; Permit # 43177";
+    document.getElementById("eom-header-title").innerHTML=headerTitle;
+    document.getElementById("eom-month-label").textContent=monthLabel(key);
+    await loadEomEntries(key);
+    var filtered=loads.filter(function(l){return monthKey(l.date)===key;});
+    var dayMap={};
+    filtered.forEach(function(l){
+      if(!dayMap[l.date]) dayMap[l.date]={count:0,volume:0};
+      dayMap[l.date].count++; dayMap[l.date].volume+=Number(l.volume);
+    });
+    var parts=key.split("-");
+    var year=parseInt(parts[0]); var month=parseInt(parts[1]);
+    var daysInMonth=new Date(year,month,0).getDate();
+    var tbody=document.getElementById("eom-body"); tbody.innerHTML="";
+    var cumulative=0; var totalTrucks=0;
+    for(var day=1;day<=daysInMonth;day++){
+      var dateStr=year+"-"+String(month).padStart(2,"0")+"-"+String(day).padStart(2,"0");
+      var dd=dayMap[dateStr]||{count:0,volume:0};
+      cumulative+=dd.volume; totalTrucks+=dd.count;
+      var saved=eomEntries[dateStr]||{};
+      var injVal=saved.inj_psi||""; var remVal=saved.remarks||"";
+      var tr=document.createElement("tr"); tr.dataset.date=dateStr;
+      tr.innerHTML=
+        '<td style="font-weight:600;">'+month+'/'+day+'</td>'+
+        '<td class="eom-auto">0</td>'+
+        '<td><input class="eom-input eom-inj" type="text" value="'+injVal.replace(/"/g,"&quot;")+'" placeholder="—" /></td>'+
+        '<td class="eom-auto" style="text-align:center;">'+(dd.count>0?dd.count:'—')+'</td>'+
+        '<td class="eom-auto">'+(dd.volume>0?dd.volume.toLocaleString():'—')+'</td>'+
+        '<td class="eom-auto">'+(cumulative>0?cumulative.toLocaleString():'—')+'</td>'+
+        '<td><input class="eom-input eom-remarks" type="text" value="'+remVal.replace(/"/g,"&quot;")+'" placeholder="Add remarks…" /></td>';
+      (function(row,ds,mk){
+        var injInput=row.querySelector(".eom-inj");
+        var remInput=row.querySelector(".eom-remarks");
+        function doSave(){saveEomEntry(mk,ds,injInput.value.trim(),remInput.value.trim());}
+        injInput.addEventListener("blur",doSave);
+        remInput.addEventListener("blur",doSave);
+      })(tr,dateStr,key);
+      tbody.appendChild(tr);
+    }
+    document.getElementById("eom-tot-trucks").textContent=totalTrucks>0?totalTrucks:"—";
+    document.getElementById("eom-tot-bbls").textContent=cumulative>0?cumulative.toLocaleString():"—";
+  }
+
+  document.getElementById("eom-month-select").addEventListener("change",renderEom);
+
+  // ── Autocomplete ───────────────────────────────────────────────
+  function setupAC(inputId,boxId,onInput) {
+    var input=document.getElementById(inputId);
+    var box=document.getElementById(boxId);
+    function close(){box.style.display="none";box.innerHTML="";}
+    input.addEventListener("input",function(){
+      var val=input.value.trim().toLowerCase(); close();
+      if(!val){if(onInput)onInput();return;}
+      var matches=allWellNames().filter(function(w){return w.toLowerCase().includes(val);}).slice(0,10);
+      if(matches.length){
+        matches.forEach(function(w){
+          var div=document.createElement("div"); div.textContent=w;
+          div.addEventListener("click",function(){input.value=w;close();if(onInput)onInput();});
+          box.appendChild(div);
+        });
+        box.style.display="block";
+      }
+      if(onInput)onInput();
+    });
+    input.addEventListener("keydown",function(e){if(e.key==="Escape"){close();if(onInput)onInput();}});
+    document.addEventListener("click",function(e){if(!input.contains(e.target)&&!box.contains(e.target))close();});
+  }
+
+  setupAC("f-well","f-well-ac",null);
+  setupAC("well-search","well-search-ac",renderEdit);
+
+  // ── Excel Export ───────────────────────────────────────────────
+  async function exportXLSX() {
+    var key = document.getElementById("report-month-select").value;
+    var label = monthLabel(key);
+    var d = getMonthData(key);
+    var wellNames = Object.keys(d.wellCount).sort(function(a,b){return d.wellCount[b].volume-d.wellCount[a].volume;});
+    var totalLoads = d.filtered.length;
+    var totalVol = d.filtered.reduce(function(s,l){return s+Number(l.volume);},0);
+    var modeLabel = mode==="production" ? "Production" : "Compressor Water";
+
+    var workbook = new ExcelJS.Workbook();
+    var baseFont = {name:"Calibri",size:14,bold:true,color:{argb:"FF000000"}};
+    var center   = {horizontal:"center",vertical:"middle"};
+    var left     = {horizontal:"left",  vertical:"middle"};
+    var hdrBorder= {bottom:{style:"medium",color:{argb:"FF000000"}}};
+
+    // Sheet 1 — Monthly Summary
+    var ws1 = workbook.addWorksheet("Monthly Summary");
+    ws1.columns = [{width:42},{width:18},{width:20}];
+    ws1.mergeCells("A1:C1");
+    Object.assign(ws1.getCell("A1"),{value:"Texcom Peak SWD — "+modeLabel+" — Monthly Load Summary",font:{...baseFont,size:16},alignment:center});
+    ws1.getRow(1).height=28;
+    ws1.mergeCells("A2:C2");
+    Object.assign(ws1.getCell("A2"),{value:label,font:baseFont,alignment:center});
+    ws1.getRow(2).height=22;
+    ws1.addRow([]);
+    var sHdr=ws1.addRow(["Total Loads","Total Volume (bbls)","Wells Received From"]);
+    sHdr.height=22; sHdr.eachCell(function(c){c.font=baseFont;c.alignment=center;c.border=hdrBorder;});
+    var sVals=ws1.addRow([totalLoads,totalVol,wellNames.length]);
+    sVals.height=22; sVals.eachCell(function(c){c.font=baseFont;c.alignment=center;});
+    ws1.addRow([]);
+    var wHdr=ws1.addRow(["Well","Number of Loads","Total Volume (bbls)"]);
+    wHdr.height=22; wHdr.eachCell(function(c,col){c.font=baseFont;c.alignment=col===1?left:center;c.border=hdrBorder;});
+    wellNames.forEach(function(name){
+      var row=ws1.addRow([name,d.wellCount[name].count,d.wellCount[name].volume]);
+      row.height=20; row.eachCell(function(c,col){c.font=baseFont;c.alignment=col===1?left:center;});
+    });
+    ws1.addRow([]);
+    var totRow=ws1.addRow(["TOTAL",totalLoads,totalVol]);
+    totRow.height=22; totRow.eachCell(function(c,col){c.font={...baseFont,size:15};c.alignment=col===1?left:center;c.border={top:{style:"medium",color:{argb:"FF000000"}}};});
+
+    // Sheet 2 — Load Detail
+    var ws2 = workbook.addWorksheet("Load Detail");
+    ws2.columns=[{width:16},{width:42},{width:20},{width:28},{width:28}];
+    ws2.mergeCells("A1:E1");
+    Object.assign(ws2.getCell("A1"),{value:"Texcom Peak SWD — "+modeLabel+" — Load Detail — "+label,font:{...baseFont,size:16},alignment:center});
+    ws2.getRow(1).height=28; ws2.addRow([]);
+    var dHdr=ws2.addRow(["Date","Well","Volume (bbls)","Trucking Company","Oil Company"]);
+    dHdr.height=22; dHdr.eachCell(function(c,col){c.font=baseFont;c.alignment=col===2?left:center;c.border=hdrBorder;});
+    d.filtered.slice().sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(l){
+      var row=ws2.addRow([l.date,l.well,Number(l.volume),l.trucking||"",l.oil||""]);
+      row.height=20; row.eachCell(function(c,col){c.font=baseFont;c.alignment=col===2?left:center;});
+    });
+
+    // Sheet 3 — Loads Per Day
+    var ws3 = workbook.addWorksheet("Loads Per Day");
+    ws3.columns=[{width:20},{width:18},{width:20}];
+    ws3.mergeCells("A1:C1");
+    Object.assign(ws3.getCell("A1"),{value:"Texcom Peak SWD — "+modeLabel+" — Loads Per Day — "+label,font:{...baseFont,size:16},alignment:center});
+    ws3.getRow(1).height=28; ws3.addRow([]);
+    var lpHdr=ws3.addRow(["Date","Loads","Total bbls"]);
+    lpHdr.height=22; lpHdr.eachCell(function(c){c.font=baseFont;c.alignment=center;c.border=hdrBorder;});
+    var dayMap={};
+    d.filtered.forEach(function(l){
+      if(!dayMap[l.date]) dayMap[l.date]={count:0,volume:0};
+      dayMap[l.date].count++; dayMap[l.date].volume+=Number(l.volume);
+    });
+    Object.keys(dayMap).sort().forEach(function(date){
+      var row=ws3.addRow([date,dayMap[date].count,dayMap[date].volume]);
+      row.height=20; row.eachCell(function(c){c.font=baseFont;c.alignment=center;});
+    });
+    ws3.addRow([]);
+    var lpTot=ws3.addRow(["TOTAL",totalLoads,totalVol]);
+    lpTot.height=22; lpTot.eachCell(function(c){c.font={...baseFont,size:15};c.alignment=center;c.border={top:{style:"medium",color:{argb:"FF000000"}}};});
+
+    var buf=await workbook.xlsx.writeBuffer();
+    var blob=new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement("a"); a.href=url;
+    a.download="Texcom Peak SWD - "+modeLabel+" - "+label+".xlsx";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(url);},1000);
+  }
+
+  document.getElementById("export-btn").addEventListener("click",exportXLSX);
+
   loadData();
 </script>
 </body>
