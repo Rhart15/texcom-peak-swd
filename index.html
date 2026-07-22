@@ -157,6 +157,7 @@
   #rep-well-body td { padding: 7px 12px; font-size: 14px; }
 
   /* ── Print ── */
+  .print-only { display: none; }
   @media print {
     #nav-top, #nav-tabs, .no-print, .btn { display: none !important; }
     .page { display: none !important; }
@@ -165,6 +166,8 @@
     body { background: #fff; }
     #eom-table input { border: none !important; background: transparent !important; padding: 0 !important; font-size: 13px; }
     .mode-banner { display: none !important; }
+    .print-only { display: block !important; }
+    .report-scroll { max-height: none !important; overflow: visible !important; border: none !important; }
   }
 </style>
 </head>
@@ -246,23 +249,27 @@
       <button class="btn outline-prod" id="export-btn">📥 Download Spreadsheet</button>
     </div>
   </div>
+  <div id="report-print-title" class="print-only">
+    <h2 style="margin-bottom:4px;">Texcom Peak SWD — Monthly Report</h2>
+    <div style="font-size:14px;color:#555;margin-bottom:18px;" id="report-print-subtitle"></div>
+  </div>
   <div class="stat-grid" id="report-stats"></div>
   <div class="card"><h3 style="font-size:17px;font-weight:700;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--border);">Summary by Well</h3>
-    <div class="table-wrap" style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);">
+    <div class="table-wrap report-scroll" style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);">
       <table><thead><tr><th>Well</th><th class="num">Loads</th><th class="num">Total bbls</th></tr></thead><tbody id="rep-well-body"></tbody></table>
     </div>
   </div>
-  <div class="card"><h3 style="font-size:17px;font-weight:700;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--border);">Loads Per Day</h3>
+  <div class="card no-print"><h3 style="font-size:17px;font-weight:700;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--border);">Loads Per Day</h3>
     <div class="table-wrap" style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);">
       <table><thead><tr><th>Date</th><th class="num">Loads</th><th class="num">Total bbls</th></tr></thead><tbody id="rep-day-body-compact"></tbody></table>
     </div>
   </div>
-  <div class="card"><h3 style="font-size:17px;font-weight:700;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--border);">Load Detail</h3>
+  <div class="card no-print"><h3 style="font-size:17px;font-weight:700;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--border);">Load Detail</h3>
     <div class="table-wrap" style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);">
       <table><thead><tr><th>Date</th><th>Well</th><th class="num">bbls</th><th>Trucking</th><th>Oil Co.</th></tr></thead><tbody id="rep-detail-body"></tbody></table>
     </div>
   </div>
-  <div class="card"><h3 style="font-size:17px;font-weight:700;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--border);">All-Time Monthly Totals</h3>
+  <div class="card no-print"><h3 style="font-size:17px;font-weight:700;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--border);">All-Time Monthly Totals</h3>
     <div class="table-wrap"><table><thead><tr><th>Month</th><th class="num">Total Loads</th><th class="num">Total bbls</th></tr></thead><tbody id="rep-monthly-body"></tbody></table></div>
   </div>
 </div>
@@ -585,6 +592,8 @@
       '<div class="stat-tile"><div class="label">Total Volume (bbls)</div><div class="value '+ac+'">'+totalVol.toLocaleString()+'</div></div>'+
       '<div class="stat-tile"><div class="label">Wells Received From</div><div class="value '+ac+'">'+wellNames.length+'</div></div>'+
       '<div class="stat-tile"><div class="label">Days Active</div><div class="value '+ac+'">'+days+'</div></div>';
+    var subEl=document.getElementById("report-print-subtitle");
+    if(subEl) subEl.textContent=monthLabel(key)+" — Printed "+(new Date()).toLocaleDateString();
     var wBody=document.getElementById("rep-well-body"); wBody.innerHTML="";
     if(wellNames.length===0){wBody.innerHTML='<tr class="empty-row"><td colspan="3">No loads for this month.</td></tr>';}
     else {
