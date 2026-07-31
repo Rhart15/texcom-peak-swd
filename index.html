@@ -346,18 +346,28 @@
 
   <div class="card">
     <h2>📅 Browse Tickets by Month</h2>
-    <p style="color:var(--text-secondary);margin-bottom:14px;font-size:14px;">Jump back to any day to view or re-download a ticket.</p>
+    <p style="color:var(--text-secondary);margin-bottom:14px;font-size:14px;">Jump back to any day to view or re-download a ticket. Check boxes to select multiple days — hold Shift and click another box to select everything in between.</p>
     <div class="report-controls" style="margin-bottom:0;">
       <select id="tix-month-select"></select>
     </div>
+    <div id="tix-bulk-bar" style="display:none;align-items:center;gap:12px;flex-wrap:wrap;border-radius:var(--radius);padding:12px 16px;margin-top:14px;">
+      <span id="tix-bulk-count" style="font-weight:700;font-size:14px;"></span>
+      <button class="btn sm outline-prod" id="tix-zip-btn">📦 Download as ZIP</button>
+      <button class="btn sm outline-prod" id="tix-download-btn">⬇️ Download Individually</button>
+      <button class="btn sm outline-prod" id="tix-print-btn">🖨️ Print Selected</button>
+    </div>
     <div class="table-wrap" style="max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-top:14px;">
-      <table><thead><tr><th>Date</th><th class="num">Tickets Scanned</th><th></th></tr></thead><tbody id="tix-month-body"></tbody></table>
+      <table>
+        <thead><tr><th style="width:36px;"><input type="checkbox" id="tix-select-all" /></th><th>Date</th><th class="num">Tickets Scanned</th><th></th></tr></thead>
+        <tbody id="tix-month-body"></tbody>
+      </table>
     </div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
   var SUPABASE_URL      = "https://ztqizzpsuzyolqyamvop.supabase.co";
   var SUPABASE_ANON_KEY = "sb_publishable_LN8DPOZ8-gstsMQS8mQ7Sw_xiWmzk5S";
@@ -367,6 +377,8 @@
   var loads = [];
   var eomEntries = {};
   var tickets = [];
+  var selectedTixDates = new Set();
+  var lastClickedTixDate = null;
   var editingId = null;
   var currentPage = "dashboard";
 
@@ -841,13 +853,18 @@
     tickets.forEach(function(t){ if(monthKey(t.date)===key){ countByDate[t.date]=(countByDate[t.date]||0)+1; } });
     var tbody=document.getElementById("tix-month-body");
     tbody.innerHTML="";
+    var dsInOrder=[];
     for(var day=1; day<=daysInMonth; day++){
       var ds=year+"-"+String(month).padStart(2,"0")+"-"+String(day).padStart(2,"0");
+      dsInOrder.push(ds);
       var count=countByDate[ds]||0;
-      var tr=document.createElement("tr");
       var mute=count===0?' style="color:var(--text-muted);"':'';
+      var checkDisabled=count===0?' disabled':'';
+      var checked=selectedTixDates.has(ds)?' checked':'';
       var btnAttrs=count===0?' disabled style="opacity:0.35;cursor:default;"':'';
-      tr.innerHTML='<td'+mute+'>'+fmtDate(ds)+'</td><td class="num"'+mute+'>'+count+'</td><td class="num"><button class="btn icon tix-view-day-btn" data-date="'+ds+'"'+btnAttrs+'>👁 View</button></td>';
+      var tr=document.createElement("tr");
+      tr.innerHTML='<td class="num" style="width:36px;"><input type="checkbox" class="tix-day-check" data-date="'+ds+'"'+checkDisabled+checked+' /></td>'+
+        '<td'+mute+'>'+fmtDate(ds)+'</td><td class="num"'+mute+'>'+count+'</td><td class="num"><button class="btn icon tix-view-day-btn" data-date="'+ds+'"'+btnAttrs+'>👁 View</button></td>';
       tbody.appendChild(tr);
     }
     tbody.querySelectorAll(".tix-view-day-btn").forEach(function(btn){
@@ -858,7 +875,130 @@
         document.getElementById("tix-list-title").scrollIntoView({behavior:"smooth",block:"start"});
       });
     });
+    tbody.querySelectorAll(".tix-day-check").forEach(function(cb){
+      cb.addEventListener("click",function(e){
+        var ds=this.getAttribute("data-date");
+        if(e.shiftKey && lastClickedTixDate){
+          var i1=dsInOrder.indexOf(lastClickedTixDate);
+          var i2=dsInOrder.indexOf(ds);
+          if(i1>-1 && i2>-1){
+            var lo=Math.min(i1,i2), hi=Math.max(i1,i2);
+            for(var i=lo;i<=hi;i++){
+              var rds=dsInOrder[i];
+              if((countByDate[rds]||0)>0) selectedTixDates.add(rds);
+            }
+          }
+        } else {
+          if(this.checked) selectedTixDates.add(ds); else selectedTixDates.delete(ds);
+        }
+        lastClickedTixDate=ds;
+        renderTicketsMonth();
+      });
+    });
+    var selectAll=document.getElementById("tix-select-all");
+    var datesWithTickets=dsInOrder.filter(function(ds){return (countByDate[ds]||0)>0;});
+    selectAll.checked = datesWithTickets.length>0 && datesWithTickets.every(function(ds){return selectedTixDates.has(ds);});
+    selectAll.onchange=function(){
+      if(this.checked){ datesWithTickets.forEach(function(ds){selectedTixDates.add(ds);}); }
+      else { datesWithTickets.forEach(function(ds){selectedTixDates.delete(ds);}); }
+      renderTicketsMonth();
+    };
+    updateTixBulkBar();
   }
+
+  function getSelectedTickets() {
+    return tickets.filter(function(t){ return selectedTixDates.has(t.date); });
+  }
+
+  function updateTixBulkBar() {
+    var bar=document.getElementById("tix-bulk-bar");
+    var countEl=document.getElementById("tix-bulk-count");
+    var selTickets=getSelectedTickets();
+    if(selectedTixDates.size===0){ bar.style.display="none"; return; }
+    var isProd=mode==="production";
+    bar.style.background = isProd ? "var(--accent-light)" : "var(--comp-light)";
+    bar.style.border = "1px solid " + (isProd ? "#b8d4f8" : "#d8b4fe");
+    countEl.style.color = isProd ? "var(--accent)" : "var(--comp-accent)";
+    bar.style.display="flex";
+    countEl.textContent=selTickets.length+" ticket"+(selTickets.length!==1?"s":"")+" across "+selectedTixDates.size+" day"+(selectedTixDates.size!==1?"s":"")+" selected";
+  }
+
+  document.getElementById("tix-zip-btn").addEventListener("click",async function(){
+    var btn=this;
+    var selTickets=getSelectedTickets();
+    if(selTickets.length===0) return;
+    btn.textContent="Zipping…"; btn.disabled=true;
+    try{
+      var zip=new JSZip();
+      for(var i=0;i<selTickets.length;i++){
+        var t=selTickets[i];
+        var url=sb.storage.from("tickets").getPublicUrl(t.file_path).data.publicUrl;
+        var resp=await fetch(url);
+        var blob=await resp.blob();
+        var name=t.date+"_"+(t.file_name||("ticket_"+i));
+        zip.file(name,blob);
+      }
+      var content=await zip.generateAsync({type:"blob"});
+      var zurl=URL.createObjectURL(content);
+      var a=document.createElement("a"); a.href=zurl;
+      a.download="Texcom Peak SWD Tickets - "+(mode==="production"?"Production":"Compressor")+".zip";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){URL.revokeObjectURL(zurl);},1000);
+    } catch(err){
+      console.error(err);
+      alert("Could not build the zip file: "+err.message);
+    }
+    btn.textContent="📦 Download as ZIP"; btn.disabled=false;
+  });
+
+  document.getElementById("tix-download-btn").addEventListener("click",async function(){
+    var btn=this;
+    var selTickets=getSelectedTickets();
+    if(selTickets.length===0) return;
+    btn.disabled=true; btn.textContent="Downloading…";
+    for(var i=0;i<selTickets.length;i++){
+      var t=selTickets[i];
+      try{
+        var url=sb.storage.from("tickets").getPublicUrl(t.file_path).data.publicUrl;
+        var resp=await fetch(url);
+        var blob=await resp.blob();
+        var burl=URL.createObjectURL(blob);
+        var a=document.createElement("a");
+        a.href=burl; a.download=t.date+"_"+(t.file_name||("ticket_"+i));
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        (function(u){ setTimeout(function(){URL.revokeObjectURL(u);},2000); })(burl);
+        await new Promise(function(r){setTimeout(r,350);});
+      } catch(err){ console.error(err); }
+    }
+    btn.disabled=false; btn.textContent="⬇️ Download Individually";
+  });
+
+  document.getElementById("tix-print-btn").addEventListener("click",function(){
+    var selTickets=getSelectedTickets().slice().sort(function(a,b){return a.date<b.date?-1:1;});
+    if(selTickets.length===0) return;
+    var win=window.open("","_blank");
+    if(!win){ alert("Please allow pop-ups for this site to print tickets."); return; }
+    var html='<html><head><title>Texcom Peak SWD - Tickets</title><style>'+
+      'body{margin:0;font-family:sans-serif;}'+
+      '.ticket-page{page-break-after:always;padding:20px;text-align:center;}'+
+      '.ticket-page:last-child{page-break-after:auto;}'+
+      '.ticket-label{font-size:14px;font-weight:700;margin-bottom:10px;}'+
+      'img{max-width:100%;max-height:90vh;}'+
+      'iframe{width:100%;height:90vh;border:none;}'+
+      '</style></head><body>';
+    selTickets.forEach(function(t){
+      var url=sb.storage.from("tickets").getPublicUrl(t.file_path).data.publicUrl;
+      var isPdf=/\.pdf($|\?)/i.test(t.file_path);
+      html+='<div class="ticket-page"><div class="ticket-label">'+fmtDate(t.date)+' — '+(t.file_name||"")+'</div>';
+      html+= isPdf ? ('<iframe src="'+url+'"></iframe>') : ('<img src="'+url+'" />');
+      html+='</div>';
+    });
+    html+='</body></html>';
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    setTimeout(function(){ win.focus(); win.print(); }, 1500);
+  });
 
   document.getElementById("tix-month-select").addEventListener("change",renderTicketsMonth);
 
