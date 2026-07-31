@@ -401,6 +401,7 @@
     return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   }
   function allWellNames() { return [...new Set(loads.map(function(l){return l.well;}))].sort(); }
+  function getExt(name) { var m=/\.[a-zA-Z0-9]+$/.exec(name||""); return m?m[0]:""; }
   function getMonthData(key) {
     var filtered=loads.filter(function(l){return monthKey(l.date)===key;});
     var wellCount={};
@@ -817,7 +818,25 @@
         var url=sb.storage.from("tickets").getPublicUrl(t.file_path).data.publicUrl;
         var row=document.createElement("div"); row.className="load-row";
         row.innerHTML='<div><div class="well-name">'+(t.file_name||"Ticket")+'</div><div class="load-meta">Uploaded '+(new Date(t.uploaded_at)).toLocaleTimeString()+'</div></div>'+
-          '<div class="load-actions"><a class="btn icon" href="'+url+'" target="_blank" rel="noopener">👁 View</a><button class="btn icon del tix-del-btn">🗑</button></div>';
+          '<div class="load-actions"><a class="btn icon" href="'+url+'" target="_blank" rel="noopener">👁 View</a><button class="btn icon tix-dl-btn">⬇️ Save As</button><button class="btn icon del tix-del-btn">🗑</button></div>';
+        row.querySelector(".tix-dl-btn").addEventListener("click",async function(){
+          var defaultName=t.file_name||(t.date+"_ticket");
+          var newName=prompt("Save this ticket as:",defaultName);
+          if(newName===null) return;
+          newName=newName.trim();
+          if(!newName) return;
+          var ext=getExt(t.file_name||t.file_path);
+          if(ext && !/\.[a-zA-Z0-9]+$/.test(newName)) newName+=ext;
+          try{
+            var resp=await fetch(url);
+            var blob=await resp.blob();
+            var burl=URL.createObjectURL(blob);
+            var a=document.createElement("a");
+            a.href=burl; a.download=newName;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(function(){URL.revokeObjectURL(burl);},2000);
+          } catch(err){ console.error(err); alert("Could not download this file."); }
+        });
         row.querySelector(".tix-del-btn").addEventListener("click",async function(){
           if(!confirm("Delete this scanned ticket? This cannot be undone.")) return;
           await sb.storage.from("tickets").remove([t.file_path]);
@@ -958,13 +977,20 @@
     btn.disabled=true; btn.textContent="Downloading…";
     for(var i=0;i<selTickets.length;i++){
       var t=selTickets[i];
+      var defaultName=t.date+"_"+(t.file_name||("ticket_"+i));
+      var newName=prompt("Save file "+(i+1)+" of "+selTickets.length+" as: (Cancel to skip this one)",defaultName);
+      if(newName===null) continue;
+      newName=newName.trim();
+      if(!newName) continue;
+      var ext=getExt(t.file_name||t.file_path);
+      if(ext && !/\.[a-zA-Z0-9]+$/.test(newName)) newName+=ext;
       try{
         var url=sb.storage.from("tickets").getPublicUrl(t.file_path).data.publicUrl;
         var resp=await fetch(url);
         var blob=await resp.blob();
         var burl=URL.createObjectURL(blob);
         var a=document.createElement("a");
-        a.href=burl; a.download=t.date+"_"+(t.file_name||("ticket_"+i));
+        a.href=burl; a.download=newName;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         (function(u){ setTimeout(function(){URL.revokeObjectURL(u);},2000); })(burl);
         await new Promise(function(r){setTimeout(r,350);});
