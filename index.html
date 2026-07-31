@@ -368,6 +368,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script>
   var SUPABASE_URL      = "https://ztqizzpsuzyolqyamvop.supabase.co";
   var SUPABASE_ANON_KEY = "sb_publishable_LN8DPOZ8-gstsMQS8mQ7Sw_xiWmzk5S";
@@ -999,59 +1000,65 @@
     btn.disabled=false; btn.textContent="⬇️ Download Individually";
   });
 
-  document.getElementById("tix-print-btn").addEventListener("click",function(){
+  async function buildCombinedTicketsPdf(selTickets) {
+    var mergedPdf = await PDFLib.PDFDocument.create();
+    var skipped = [];
+    for (var i=0;i<selTickets.length;i++){
+      var t=selTickets[i];
+      try {
+        var url=sb.storage.from("tickets").getPublicUrl(t.file_path).data.publicUrl;
+        var resp=await fetch(url);
+        var bytes=await resp.arrayBuffer();
+        var lower=(t.file_path||"").toLowerCase();
+        if(lower.endsWith(".pdf")){
+          var srcPdf=await PDFLib.PDFDocument.load(bytes,{ignoreEncryption:true});
+          var pages=await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices());
+          pages.forEach(function(p){ mergedPdf.addPage(p); });
+        } else {
+          var img;
+          try {
+            img = lower.endsWith(".png") ? await mergedPdf.embedPng(bytes) : await mergedPdf.embedJpg(bytes);
+          } catch(e1){
+            img = lower.endsWith(".png") ? await mergedPdf.embedJpg(bytes) : await mergedPdf.embedPng(bytes);
+          }
+          var dims=img.scale(1);
+          var page=mergedPdf.addPage([dims.width,dims.height]);
+          page.drawImage(img,{x:0,y:0,width:dims.width,height:dims.height});
+        }
+      } catch(err){
+        console.error("Skipping ticket in combined PDF:",t,err);
+        skipped.push(fmtDate(t.date)+" — "+(t.file_name||t.file_path));
+      }
+    }
+    var bytesOut = await mergedPdf.save();
+    return {bytes:bytesOut, skipped:skipped};
+  }
+
+  document.getElementById("tix-print-btn").addEventListener("click",async function(){
+    var btn=this;
     var selTickets=getSelectedTickets().slice().sort(function(a,b){return a.date<b.date?-1:1;});
     if(selTickets.length===0) return;
-    var win=window.open("","_blank");
-    if(!win){ alert("Please allow pop-ups for this site to print tickets."); return; }
-    var mediaHtml=""; var mediaIds=[];
-    selTickets.forEach(function(t,idx){
-      var url=sb.storage.from("tickets").getPublicUrl(t.file_path).data.publicUrl;
-      var isPdf=/\.pdf($|\?)/i.test(t.file_path);
-      var id="tix-media-"+idx;
-      mediaIds.push(id);
-      mediaHtml+='<div class="ticket-page"><div class="ticket-label">'+fmtDate(t.date)+' — '+(t.file_name||"")+'</div>';
-      mediaHtml+= isPdf ? ('<iframe id="'+id+'" src="'+url+'"></iframe>') : ('<img id="'+id+'" src="'+url+'" />');
-      mediaHtml+='</div>';
-    });
-    var html='<!DOCTYPE html><html><head><title>Texcom Peak SWD - Tickets</title><style>'+
-      'body{margin:0;font-family:sans-serif;}'+
-      '.ticket-page{page-break-after:always;padding:20px;text-align:center;}'+
-      '.ticket-page:last-child{page-break-after:auto;}'+
-      '.ticket-label{font-size:14px;font-weight:700;margin-bottom:10px;}'+
-      'img{max-width:100%;max-height:90vh;}'+
-      'iframe{width:100%;height:90vh;border:none;}'+
-      '#tix-status{position:fixed;top:8px;right:12px;font-family:sans-serif;font-size:13px;color:#888;background:#fff;padding:4px 10px;border-radius:6px;}'+
-      '</style></head><body>'+
-      '<div id="tix-status">Loading '+selTickets.length+' ticket'+(selTickets.length!==1?'s':'')+' for printing…</div>'+
-      mediaHtml+
-      '<script>'+
-      'var ids='+JSON.stringify(mediaIds)+';'+
-      'var loadedSet={}; var total=ids.length; var printed=false;'+
-      'function markLoaded(id){'+
-      '  if(loadedSet[id]) return; loadedSet[id]=true;'+
-      '  var n=Object.keys(loadedSet).length;'+
-      '  var statusEl=document.getElementById("tix-status");'+
-      '  if(statusEl) statusEl.textContent="Loaded "+n+" of "+total+"…";'+
-      '  if(n>=total && !printed){ printed=true; if(statusEl) statusEl.style.display="none"; window.focus(); window.print(); }'+
-      '}'+
-      'if(total===0){ window.print(); } else {'+
-      '  ids.forEach(function(id){'+
-      '    var el=document.getElementById(id);'+
-      '    if(el.tagName==="IMG"){'+
-      '      if(el.complete){ markLoaded(id); }'+
-      '      else { el.addEventListener("load",function(){markLoaded(id);}); el.addEventListener("error",function(){markLoaded(id);}); }'+
-      '    } else {'+
-      '      el.addEventListener("load",function(){markLoaded(id);});'+
-      '      setTimeout(function(){markLoaded(id);},4000);'+
-      '    }'+
-      '  });'+
-      '}'+
-      '<\/script>'+
-      '</body></html>';
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
+    var origText=btn.textContent;
+    btn.disabled=true; btn.textContent="Preparing…";
+    try{
+      var result=await buildCombinedTicketsPdf(selTickets);
+      if(!result.bytes || result.bytes.length===0){ throw new Error("No pages could be prepared."); }
+      var blob=new Blob([result.bytes],{type:"application/pdf"});
+      var url=URL.createObjectURL(blob);
+      var win=window.open(url,"_blank");
+      if(!win){
+        alert("Please allow pop-ups for this site to view/print the combined ticket PDF.");
+      } else {
+        setTimeout(function(){ try{ win.focus(); win.print(); } catch(e){ console.warn(e); } },900);
+      }
+      if(result.skipped.length>0){
+        alert("The combined PDF is ready, but these files couldn't be included (unsupported format):\n\n"+result.skipped.join("\n"));
+      }
+    } catch(err){
+      console.error(err);
+      alert("Could not build the combined PDF: "+err.message);
+    }
+    btn.disabled=false; btn.textContent=origText;
   });
 
   document.getElementById("tix-month-select").addEventListener("change",renderTicketsMonth);
