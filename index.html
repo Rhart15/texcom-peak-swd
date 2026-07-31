@@ -355,6 +355,7 @@
       <button class="btn sm outline-prod" id="tix-zip-btn">📦 Download as ZIP</button>
       <button class="btn sm outline-prod" id="tix-download-btn">⬇️ Download Individually</button>
       <button class="btn sm outline-prod" id="tix-print-btn">🖨️ Print Selected</button>
+      <button class="btn sm icon del" id="tix-bulk-del-btn" style="border:2px solid var(--danger);color:var(--danger);">🗑 Delete Selected</button>
     </div>
     <div class="table-wrap" style="max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-top:14px;">
       <table>
@@ -1059,6 +1060,36 @@
       alert("Could not build the combined PDF: "+err.message);
     }
     btn.disabled=false; btn.textContent=origText;
+  });
+
+  document.getElementById("tix-bulk-del-btn").addEventListener("click",async function(){
+    var btn=this;
+    var selTickets=getSelectedTickets();
+    if(selTickets.length===0) return;
+    var dayCount=selectedTixDates.size;
+    var ok=confirm("Delete "+selTickets.length+" ticket"+(selTickets.length!==1?"s":"")+" across "+dayCount+" day"+(dayCount!==1?"s":"")+"? This cannot be undone.");
+    if(!ok) return;
+    var origText=btn.textContent;
+    btn.disabled=true; btn.textContent="Deleting…";
+    var failed=[];
+    for(var i=0;i<selTickets.length;i++){
+      var t=selTickets[i];
+      try{
+        await sb.storage.from("tickets").remove([t.file_path]);
+        var res=await sb.from(ticketsTable()).delete().eq("id",t.id);
+        if(res.error) throw res.error;
+      } catch(err){
+        console.error("Could not delete ticket:",t,err);
+        failed.push(fmtDate(t.date)+" — "+(t.file_name||t.file_path));
+      }
+    }
+    await loadTicketsData();
+    selectedTixDates.clear();
+    renderTickets();
+    btn.disabled=false; btn.textContent=origText;
+    if(failed.length>0){
+      alert("Some tickets could not be deleted:\n\n"+failed.join("\n"));
+    }
   });
 
   document.getElementById("tix-month-select").addEventListener("change",renderTicketsMonth);
