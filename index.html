@@ -1004,26 +1004,54 @@
     if(selTickets.length===0) return;
     var win=window.open("","_blank");
     if(!win){ alert("Please allow pop-ups for this site to print tickets."); return; }
-    var html='<html><head><title>Texcom Peak SWD - Tickets</title><style>'+
+    var mediaHtml=""; var mediaIds=[];
+    selTickets.forEach(function(t,idx){
+      var url=sb.storage.from("tickets").getPublicUrl(t.file_path).data.publicUrl;
+      var isPdf=/\.pdf($|\?)/i.test(t.file_path);
+      var id="tix-media-"+idx;
+      mediaIds.push(id);
+      mediaHtml+='<div class="ticket-page"><div class="ticket-label">'+fmtDate(t.date)+' — '+(t.file_name||"")+'</div>';
+      mediaHtml+= isPdf ? ('<iframe id="'+id+'" src="'+url+'"></iframe>') : ('<img id="'+id+'" src="'+url+'" />');
+      mediaHtml+='</div>';
+    });
+    var html='<!DOCTYPE html><html><head><title>Texcom Peak SWD - Tickets</title><style>'+
       'body{margin:0;font-family:sans-serif;}'+
       '.ticket-page{page-break-after:always;padding:20px;text-align:center;}'+
       '.ticket-page:last-child{page-break-after:auto;}'+
       '.ticket-label{font-size:14px;font-weight:700;margin-bottom:10px;}'+
       'img{max-width:100%;max-height:90vh;}'+
       'iframe{width:100%;height:90vh;border:none;}'+
-      '</style></head><body>';
-    selTickets.forEach(function(t){
-      var url=sb.storage.from("tickets").getPublicUrl(t.file_path).data.publicUrl;
-      var isPdf=/\.pdf($|\?)/i.test(t.file_path);
-      html+='<div class="ticket-page"><div class="ticket-label">'+fmtDate(t.date)+' — '+(t.file_name||"")+'</div>';
-      html+= isPdf ? ('<iframe src="'+url+'"></iframe>') : ('<img src="'+url+'" />');
-      html+='</div>';
-    });
-    html+='</body></html>';
+      '#tix-status{position:fixed;top:8px;right:12px;font-family:sans-serif;font-size:13px;color:#888;background:#fff;padding:4px 10px;border-radius:6px;}'+
+      '</style></head><body>'+
+      '<div id="tix-status">Loading '+selTickets.length+' ticket'+(selTickets.length!==1?'s':'')+' for printing…</div>'+
+      mediaHtml+
+      '<script>'+
+      'var ids='+JSON.stringify(mediaIds)+';'+
+      'var loadedSet={}; var total=ids.length; var printed=false;'+
+      'function markLoaded(id){'+
+      '  if(loadedSet[id]) return; loadedSet[id]=true;'+
+      '  var n=Object.keys(loadedSet).length;'+
+      '  var statusEl=document.getElementById("tix-status");'+
+      '  if(statusEl) statusEl.textContent="Loaded "+n+" of "+total+"…";'+
+      '  if(n>=total && !printed){ printed=true; if(statusEl) statusEl.style.display="none"; window.focus(); window.print(); }'+
+      '}'+
+      'if(total===0){ window.print(); } else {'+
+      '  ids.forEach(function(id){'+
+      '    var el=document.getElementById(id);'+
+      '    if(el.tagName==="IMG"){'+
+      '      if(el.complete){ markLoaded(id); }'+
+      '      else { el.addEventListener("load",function(){markLoaded(id);}); el.addEventListener("error",function(){markLoaded(id);}); }'+
+      '    } else {'+
+      '      el.addEventListener("load",function(){markLoaded(id);});'+
+      '      setTimeout(function(){markLoaded(id);},4000);'+
+      '    }'+
+      '  });'+
+      '}'+
+      '<\/script>'+
+      '</body></html>';
     win.document.open();
     win.document.write(html);
     win.document.close();
-    setTimeout(function(){ win.focus(); win.print(); }, 1500);
   });
 
   document.getElementById("tix-month-select").addEventListener("change",renderTicketsMonth);
