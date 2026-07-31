@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -407,11 +406,24 @@
   }
 
   // ── Supabase ───────────────────────────────────────────────────
+  // Fetches ALL rows from the table, paging in batches of 1000, so the
+  // list is never silently truncated by Supabase's default row cap
+  // (Settings → API → Max Rows). This works no matter how large the
+  // table grows and no matter what the Max Rows setting is.
   async function loadData() {
     document.getElementById("nav-status").textContent="Connecting…";
-    var res = await sb.from(loadsTable()).select("*").order("date",{ascending:true});
-    if(res.error){ document.getElementById("nav-status").textContent="⚠️ Error"; console.error(res.error); return; }
-    loads = res.data||[];
+    var all = [];
+    var pageSize = 1000;
+    var from = 0;
+    while (true) {
+      var res = await sb.from(loadsTable()).select("*").order("date",{ascending:true}).range(from, from + pageSize - 1);
+      if (res.error) { document.getElementById("nav-status").textContent="⚠️ Error"; console.error(res.error); return; }
+      var batch = res.data || [];
+      all = all.concat(batch);
+      if (batch.length < pageSize) break; // reached the last page
+      from += pageSize;
+    }
+    loads = all;
     document.getElementById("nav-status").textContent = (mode==="production"?"🛢 Production":"⚙️ Compressor") + " — ✅ Connected";
     populateMonthSelects();
     updateBanners();
