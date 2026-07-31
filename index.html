@@ -189,6 +189,7 @@
   <button class="tab-btn" onclick="showPage('edit')">✏️ View &amp; Edit</button>
   <button class="tab-btn" onclick="showPage('reports')">📋 Reports</button>
   <button class="tab-btn" onclick="showPage('eom')">📄 EOM Report</button>
+  <button class="tab-btn" onclick="showPage('tickets')">🧾 Scan Tickets</button>
 </div>
 
 <!-- DASHBOARD -->
@@ -316,6 +317,45 @@
   </div>
 </div>
 
+<!-- SCAN TICKETS -->
+<div class="page" id="page-tickets">
+  <div class="card">
+    <h2>🧾 Scan Tickets</h2>
+    <p style="color:var(--text-secondary);margin-bottom:24px;">Upload scanned truck ticket files (PDF or image) and save them by date, ready for your weekly mail-in.</p>
+    <div id="tix-ok" class="alert success"></div>
+    <div id="tix-err" class="alert error"></div>
+    <div class="form-grid">
+      <div class="field"><label for="tix-date">📅 Ticket Date</label><input type="date" id="tix-date" /></div>
+      <div class="field" style="grid-column: span 2;"><label for="tix-files">📎 Files (PDF or image, multiple allowed)</label><input type="file" id="tix-files" accept=".pdf,image/*" multiple /></div>
+    </div>
+    <button class="btn success" id="tix-upload-btn">📤 Upload Tickets</button>
+  </div>
+
+  <div class="card">
+    <h2 id="tix-list-title">Tickets</h2>
+    <div id="tix-list"></div>
+  </div>
+
+  <div class="card">
+    <h2>📆 This Week's Scan Check</h2>
+    <p style="color:var(--text-secondary);margin-bottom:14px;font-size:14px;">Days with 0 tickets are flagged in red — check before mailing.</p>
+    <div class="table-wrap">
+      <table><thead><tr><th>Date</th><th class="num">Tickets Scanned</th></tr></thead><tbody id="tix-week-body"></tbody></table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📅 Browse Tickets by Month</h2>
+    <p style="color:var(--text-secondary);margin-bottom:14px;font-size:14px;">Jump back to any day to view or re-download a ticket.</p>
+    <div class="report-controls" style="margin-bottom:0;">
+      <select id="tix-month-select"></select>
+    </div>
+    <div class="table-wrap" style="max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-top:14px;">
+      <table><thead><tr><th>Date</th><th class="num">Tickets Scanned</th><th></th></tr></thead><tbody id="tix-month-body"></tbody></table>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script>
@@ -326,11 +366,13 @@
   var mode = "production"; // or "compressor"
   var loads = [];
   var eomEntries = {};
+  var tickets = [];
   var editingId = null;
   var currentPage = "dashboard";
 
-  function loadsTable()  { return mode === "production" ? "loads" : "compressor_loads"; }
-  function eomTable()    { return mode === "production" ? "eom_entries" : "compressor_eom_entries"; }
+  function loadsTable()   { return mode === "production" ? "loads" : "compressor_loads"; }
+  function eomTable()     { return mode === "production" ? "eom_entries" : "compressor_eom_entries"; }
+  function ticketsTable() { return mode === "production" ? "ticket_scans" : "compressor_ticket_scans"; }
   function accentClass() { return mode === "production" ? "prod" : "comp"; }
   function accentColor() { return mode === "production" ? "var(--accent)" : "var(--comp-accent)"; }
 
@@ -375,12 +417,13 @@
     document.getElementById("print-report-btn").className = "btn outline-" + accentClass();
 
     loadData();
+    loadTicketsData().then(renderTickets);
   }
 
   function updateTabStyles() {
     document.querySelectorAll(".tab-btn").forEach(function(b){ b.classList.remove("active","prod","comp"); });
     var tabs = document.querySelectorAll(".tab-btn");
-    var pages = ["dashboard","log","edit","reports","eom"];
+    var pages = ["dashboard","log","edit","reports","eom","tickets"];
     pages.forEach(function(pg, i){
       if(pg === currentPage){ tabs[i].classList.add("active", accentClass()); }
     });
@@ -403,6 +446,7 @@
     if(id==="edit") renderEdit();
     if(id==="reports") renderReports();
     if(id==="eom") renderEom();
+    if(id==="tickets") renderTickets();
   }
 
   // ── Supabase ───────────────────────────────────────────────────
@@ -451,9 +495,10 @@
   function populateMonthSelects() {
     var keys={};
     loads.forEach(function(l){keys[monthKey(l.date)]=true;});
+    tickets.forEach(function(t){keys[monthKey(t.date)]=true;});
     var cur=monthKey(todayStr()); keys[cur]=true;
     var sorted=Object.keys(keys).sort().reverse();
-    ["edit-month-select","report-month-select","eom-month-select"].forEach(function(id){
+    ["edit-month-select","report-month-select","eom-month-select","tix-month-select"].forEach(function(id){
       var sel=document.getElementById(id);
       var prev=sel.value; sel.innerHTML="";
       sorted.forEach(function(k){var o=document.createElement("option");o.value=k;o.textContent=monthLabel(k);sel.appendChild(o);});
@@ -721,6 +766,144 @@
 
   document.getElementById("eom-month-select").addEventListener("change",renderEom);
 
+  // ── Scan Tickets ───────────────────────────────────────────────
+  // Fetches ALL ticket metadata rows for the current mode, paginated
+  // in batches of 1000 (same safeguard as loadData()).
+  async function loadTicketsData() {
+    var all=[]; var pageSize=1000; var from=0;
+    while(true){
+      var res = await sb.from(ticketsTable()).select("*").order("date",{ascending:false}).range(from, from+pageSize-1);
+      if(res.error){ console.error(res.error); return; }
+      var batch = res.data||[];
+      all = all.concat(batch);
+      if(batch.length<pageSize) break;
+      from += pageSize;
+    }
+    tickets = all;
+  }
+
+  function last7Days() {
+    var days=[];
+    for(var i=6;i>=0;i--){
+      var d=new Date();
+      d.setDate(d.getDate()-i);
+      days.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));
+    }
+    return days;
+  }
+
+  function renderTickets() {
+    var date=document.getElementById("tix-date").value || todayStr();
+    var dayTickets=tickets.filter(function(t){return t.date===date;});
+    document.getElementById("tix-list-title").textContent="Tickets for "+fmtDate(date)+" ("+dayTickets.length+")";
+    var list=document.getElementById("tix-list");
+    list.innerHTML="";
+    if(dayTickets.length===0){
+      list.innerHTML='<p style="color:var(--text-muted);font-size:15px;">No tickets scanned in for this date yet.</p>';
+    } else {
+      dayTickets.slice().sort(function(a,b){return a.uploaded_at<b.uploaded_at?-1:1;}).forEach(function(t){
+        var url=sb.storage.from("tickets").getPublicUrl(t.file_path).data.publicUrl;
+        var row=document.createElement("div"); row.className="load-row";
+        row.innerHTML='<div><div class="well-name">'+(t.file_name||"Ticket")+'</div><div class="load-meta">Uploaded '+(new Date(t.uploaded_at)).toLocaleTimeString()+'</div></div>'+
+          '<div class="load-actions"><a class="btn icon" href="'+url+'" target="_blank" rel="noopener">👁 View</a><button class="btn icon del tix-del-btn">🗑</button></div>';
+        row.querySelector(".tix-del-btn").addEventListener("click",async function(){
+          if(!confirm("Delete this scanned ticket? This cannot be undone.")) return;
+          await sb.storage.from("tickets").remove([t.file_path]);
+          await sb.from(ticketsTable()).delete().eq("id",t.id);
+          tickets=tickets.filter(function(x){return x.id!==t.id;});
+          renderTickets();
+        });
+        list.appendChild(row);
+      });
+    }
+    var wbody=document.getElementById("tix-week-body");
+    wbody.innerHTML="";
+    last7Days().forEach(function(ds){
+      var count=tickets.filter(function(t){return t.date===ds;}).length;
+      var tr=document.createElement("tr");
+      var warn=count===0?' style="color:var(--danger);font-weight:700;"':'';
+      tr.innerHTML='<td>'+fmtDate(ds)+'</td><td class="num"'+warn+'>'+count+'</td>';
+      wbody.appendChild(tr);
+    });
+
+    populateMonthSelects();
+    renderTicketsMonth();
+  }
+
+  function renderTicketsMonth() {
+    var sel=document.getElementById("tix-month-select");
+    var key=sel.value;
+    if(!key) return;
+    var parts=key.split("-");
+    var year=parseInt(parts[0],10); var month=parseInt(parts[1],10);
+    var daysInMonth=new Date(year,month,0).getDate();
+    var countByDate={};
+    tickets.forEach(function(t){ if(monthKey(t.date)===key){ countByDate[t.date]=(countByDate[t.date]||0)+1; } });
+    var tbody=document.getElementById("tix-month-body");
+    tbody.innerHTML="";
+    for(var day=1; day<=daysInMonth; day++){
+      var ds=year+"-"+String(month).padStart(2,"0")+"-"+String(day).padStart(2,"0");
+      var count=countByDate[ds]||0;
+      var tr=document.createElement("tr");
+      var mute=count===0?' style="color:var(--text-muted);"':'';
+      var btnAttrs=count===0?' disabled style="opacity:0.35;cursor:default;"':'';
+      tr.innerHTML='<td'+mute+'>'+fmtDate(ds)+'</td><td class="num"'+mute+'>'+count+'</td><td class="num"><button class="btn icon tix-view-day-btn" data-date="'+ds+'"'+btnAttrs+'>👁 View</button></td>';
+      tbody.appendChild(tr);
+    }
+    tbody.querySelectorAll(".tix-view-day-btn").forEach(function(btn){
+      btn.addEventListener("click",function(){
+        var ds=this.getAttribute("data-date");
+        document.getElementById("tix-date").value=ds;
+        renderTickets();
+        document.getElementById("tix-list-title").scrollIntoView({behavior:"smooth",block:"start"});
+      });
+    });
+  }
+
+  document.getElementById("tix-month-select").addEventListener("change",renderTicketsMonth);
+
+  document.getElementById("tix-date").value=todayStr();
+  document.getElementById("tix-date").addEventListener("change",renderTickets);
+
+  document.getElementById("tix-upload-btn").addEventListener("click",async function(){
+    var btn=this;
+    var date=document.getElementById("tix-date").value;
+    var filesInput=document.getElementById("tix-files");
+    var files=filesInput.files;
+    var errEl=document.getElementById("tix-err");
+    var okEl=document.getElementById("tix-ok");
+    errEl.style.display="none"; okEl.style.display="none";
+    if(!date||!files||files.length===0){
+      errEl.textContent="⚠️ Choose a date and at least one file.";
+      errEl.style.display="block"; return;
+    }
+    btn.textContent="Uploading…"; btn.disabled=true;
+    var folder=mode+"/"+date+"/";
+    var successCount=0;
+    for(var i=0;i<files.length;i++){
+      var file=files[i];
+      var safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+      var path=folder+Date.now()+"_"+i+"_"+safeName;
+      var upRes=await sb.storage.from("tickets").upload(path,file);
+      if(upRes.error){ console.error(upRes.error); continue; }
+      var insRes=await sb.from(ticketsTable()).insert([{date:date,file_path:path,file_name:file.name}]);
+      if(insRes.error){ console.error(insRes.error); continue; }
+      successCount++;
+    }
+    btn.textContent="📤 Upload Tickets"; btn.disabled=false;
+    filesInput.value="";
+    if(successCount>0){
+      okEl.textContent="✅ "+successCount+" ticket"+(successCount>1?"s":"")+" saved for "+fmtDate(date)+".";
+      okEl.style.display="block";
+      await loadTicketsData();
+      renderTickets();
+      setTimeout(function(){okEl.style.display="none";},3000);
+    } else {
+      errEl.textContent="⚠️ Upload failed — check the browser console for details.";
+      errEl.style.display="block";
+    }
+  });
+
   // ── Autocomplete ───────────────────────────────────────────────
   function setupAC(inputId,boxId,onInput) {
     var input=document.getElementById(inputId);
@@ -834,6 +1017,7 @@
   document.getElementById("export-btn").addEventListener("click",exportXLSX);
 
   loadData();
+  loadTicketsData().then(renderTickets);
 </script>
 </body>
 </html>
