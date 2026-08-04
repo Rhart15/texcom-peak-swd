@@ -782,6 +782,32 @@
   document.getElementById("eom-month-select").addEventListener("change",renderEom);
 
   // ── Scan Tickets ───────────────────────────────────────────────
+  // Uploads a single file to Supabase Storage, retrying with backoff
+  // if the connection drops mid-upload (common on poor wifi/cell
+  // connections — shows up as ERR_NETWORK_IO_SUSPENDED or a generic
+  // "Failed to fetch" in the console). onProgress(attempt, maxRetries)
+  // is called before each attempt so the UI can show retry status.
+  async function uploadTicketFileWithRetry(path, file, maxRetries, onProgress) {
+    maxRetries = maxRetries || 5;
+    var lastError = null;
+    for (var attempt = 1; attempt <= maxRetries; attempt++) {
+      if (onProgress) onProgress(attempt, maxRetries);
+      try {
+        var upRes = await sb.storage.from("tickets").upload(path, file, { upsert: true });
+        if (upRes.error) throw upRes.error;
+        return { data: upRes.data, error: null };
+      } catch (err) {
+        lastError = err;
+        console.warn("Upload attempt " + attempt + " of " + maxRetries + " failed for " + file.name + ":", err && err.message ? err.message : err);
+        if (attempt < maxRetries) {
+          var delay = Math.min(1000 * Math.pow(2, attempt - 1), 15000); // 1s,2s,4s,8s,15s cap
+          await new Promise(function (r) { setTimeout(r, delay); });
+        }
+      }
+    }
+    return { data: null, error: lastError };
+  }
+
   // Fetches ALL ticket metadata rows for the current mode, paginated
   // in batches of 1000 (same safeguard as loadData()).
   async function loadTicketsData() {
@@ -1109,29 +1135,37 @@
       errEl.textContent="⚠️ Choose a date and at least one file.";
       errEl.style.display="block"; return;
     }
-    btn.textContent="Uploading…"; btn.disabled=true;
+    btn.disabled=true;
     var folder=mode+"/"+date+"/";
     var successCount=0;
+    var failedNames=[];
     for(var i=0;i<files.length;i++){
       var file=files[i];
       var safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
       var path=folder+Date.now()+"_"+i+"_"+safeName;
-      var upRes=await sb.storage.from("tickets").upload(path,file);
-      if(upRes.error){ console.error(upRes.error); continue; }
+      var fileLabel="file "+(i+1)+" of "+files.length;
+      var upRes=await uploadTicketFileWithRetry(path,file,5,function(attempt,maxRetries){
+        btn.textContent = attempt===1
+          ? "Uploading "+fileLabel+"…"
+          : "Retrying "+fileLabel+" ("+attempt+"/"+maxRetries+")…";
+      });
+      if(upRes.error){ console.error(upRes.error); failedNames.push(file.name); continue; }
       var insRes=await sb.from(ticketsTable()).insert([{date:date,file_path:path,file_name:file.name}]);
-      if(insRes.error){ console.error(insRes.error); continue; }
+      if(insRes.error){ console.error(insRes.error); failedNames.push(file.name); continue; }
       successCount++;
     }
     btn.textContent="📤 Upload Tickets"; btn.disabled=false;
     filesInput.value="";
     if(successCount>0){
-      okEl.textContent="✅ "+successCount+" ticket"+(successCount>1?"s":"")+" saved for "+fmtDate(date)+".";
+      okEl.textContent="✅ "+successCount+" ticket"+(successCount>1?"s":"")+" saved for "+fmtDate(date)+
+        (failedNames.length>0 ? " ("+failedNames.length+" failed after retries — see below)" : "")+".";
       okEl.style.display="block";
       await loadTicketsData();
       renderTickets();
-      setTimeout(function(){okEl.style.display="none";},3000);
-    } else {
-      errEl.textContent="⚠️ Upload failed — check the browser console for details.";
+      setTimeout(function(){okEl.style.display="none";},4000);
+    }
+    if(failedNames.length>0){
+      errEl.textContent="⚠️ Could not upload after several retries: "+failedNames.join(", ")+". Check your connection and try uploading just those files again.";
       errEl.style.display="block";
     }
   });
