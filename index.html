@@ -783,11 +783,6 @@
   document.getElementById("eom-month-select").addEventListener("change",renderEom);
 
   // ── Scan Tickets ───────────────────────────────────────────────
-  // Uploads a single file to Supabase Storage, retrying with backoff
-  // if the connection drops mid-upload (common on poor wifi/cell
-  // connections — shows up as ERR_NETWORK_IO_SUSPENDED or a generic
-  // "Failed to fetch" in the console). onProgress(attempt, maxRetries)
-  // is called before each attempt so the UI can show retry status.
   // Uploads a file to Supabase Storage in small resumable chunks (TUS
   // protocol) instead of one single request. This is built specifically
   // for bad/flaky connections: if the connection drops mid-upload, only
@@ -796,6 +791,31 @@
   // even after a page reload. A plain single-shot upload has to
   // complete start-to-finish in one unbroken connection, which is why
   // it kept failing; this doesn't need that.
+  // Wraps the resumable upload in multiple "rounds". Each round's tus
+  // upload already retries individual chunk failures internally; once
+  // it exhausts its own retryDelays and gives up, this starts a fresh
+  // tus.Upload for the SAME file+path, which finds the previous
+  // (incomplete) upload via findPreviousUploads() and resumes from
+  // wherever it left off — it does not restart from 0. This keeps
+  // going for several rounds with a pause in between before finally
+  // reporting failure.
+  async function uploadTicketFileResumableWithRounds(path, file, onProgress, maxRounds) {
+    maxRounds = maxRounds || 8;
+    var lastError = null;
+    for (var round = 1; round <= maxRounds; round++) {
+      var result = await uploadTicketFileResumable(path, file, function (bytesUploaded, bytesTotal) {
+        if (onProgress) onProgress(bytesUploaded, bytesTotal, round, maxRounds);
+      });
+      if (!result.error) return result;
+      lastError = result.error;
+      console.warn("Upload round " + round + " of " + maxRounds + " failed for " + file.name + ", will resume and retry:", result.error);
+      if (round < maxRounds) {
+        await new Promise(function (r) { setTimeout(r, 5000); });
+      }
+    }
+    return { error: lastError };
+  }
+
   function uploadTicketFileResumable(path, file, onProgress) {
     return new Promise(function (resolve) {
       var upload = new tus.Upload(file, {
@@ -1173,30 +1193,43 @@
     for(var i=0;i<files.length;i++){
       var file=files[i];
       var safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
-      var path=folder+Date.now()+"_"+i+"_"+safeName;
+      // IMPORTANT: this path must stay the SAME across retries/rounds/clicks
+      // for the same file, or the resumable upload can't find its own
+      // progress to continue from. It's based on the file's name+size
+      // (stable) rather than a timestamp (which changed every click).
+      var path=folder+file.size+"_"+safeName;
       var fileLabel="file "+(i+1)+" of "+files.length;
       btn.textContent = "Uploading "+fileLabel+"… 0%";
-      var upRes=await uploadTicketFileResumable(path,file,function(bytesUploaded,bytesTotal){
+      var upRes=await uploadTicketFileResumableWithRounds(path,file,function(bytesUploaded,bytesTotal,round,maxRounds){
         var pct = bytesTotal ? Math.floor((bytesUploaded/bytesTotal)*100) : 0;
-        btn.textContent = "Uploading "+fileLabel+"… "+pct+"%";
-      });
-      if(upRes.error){ console.error(upRes.error); failedNames.push(file.name); continue; }
+        btn.textContent = round>1
+          ? "Resuming "+fileLabel+"… "+pct+"% (round "+round+"/"+maxRounds+")"
+          : "Uploading "+fileLabel+"… "+pct+"%";
+      },8);
+      if(upRes.error){ console.error(upRes.error); failedNames.push(file); continue; }
       var insRes=await sb.from(ticketsTable()).insert([{date:date,file_path:path,file_name:file.name}]);
-      if(insRes.error){ console.error(insRes.error); failedNames.push(file.name); continue; }
+      if(insRes.error){ console.error(insRes.error); failedNames.push(file); continue; }
       successCount++;
     }
     btn.textContent="📤 Upload Tickets"; btn.disabled=false;
-    filesInput.value="";
+    // Only clear the file picker if EVERYTHING succeeded. If anything
+    // failed, we deliberately leave the files attached so you don't have
+    // to reselect them — just click "Upload Tickets" again and it will
+    // resume the failed ones from wherever they left off.
+    if(failedNames.length===0){
+      filesInput.value="";
+    }
     if(successCount>0){
       okEl.textContent="✅ "+successCount+" ticket"+(successCount>1?"s":"")+" saved for "+fmtDate(date)+
-        (failedNames.length>0 ? " ("+failedNames.length+" failed — see below)" : "")+".";
+        (failedNames.length>0 ? " ("+failedNames.length+" still need to finish — see below)" : "")+".";
       okEl.style.display="block";
       await loadTicketsData();
       renderTickets();
       setTimeout(function(){okEl.style.display="none";},4000);
     }
     if(failedNames.length>0){
-      errEl.textContent="⚠️ Could not upload: "+failedNames.join(", ")+". Your progress on these was saved — just try uploading them again and it'll pick up where it left off instead of starting over.";
+      var names=failedNames.map(function(f){return f.name;}).join(", ");
+      errEl.textContent="⚠️ Still uploading: "+names+". These files are still attached above — your progress on them was saved, so just click \"Upload Tickets\" again (no need to reselect) and it'll continue from where it stopped instead of starting over.";
       errEl.style.display="block";
     }
   });
@@ -1318,3 +1351,4 @@
 </script>
 </body>
 </html>
+
