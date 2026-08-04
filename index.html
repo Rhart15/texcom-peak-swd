@@ -370,6 +370,7 @@
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
 <script>
   var SUPABASE_URL      = "https://ztqizzpsuzyolqyamvop.supabase.co";
   var SUPABASE_ANON_KEY = "sb_publishable_LN8DPOZ8-gstsMQS8mQ7Sw_xiWmzk5S";
@@ -787,42 +788,55 @@
   // connections — shows up as ERR_NETWORK_IO_SUSPENDED or a generic
   // "Failed to fetch" in the console). onProgress(attempt, maxRetries)
   // is called before each attempt so the UI can show retry status.
-  // Races a promise against a timeout so a hung network request (dead
-  // connection with no response, no error) doesn't block forever.
-  function withTimeout(promise, ms) {
-    return new Promise(function (resolve, reject) {
-      var timer = setTimeout(function () {
-        reject(new Error("Upload timed out after " + Math.round(ms / 1000) + "s (no response)"));
-      }, ms);
-      promise.then(
-        function (v) { clearTimeout(timer); resolve(v); },
-        function (e) { clearTimeout(timer); reject(e); }
-      );
-    });
-  }
-
-  async function uploadTicketFileWithRetry(path, file, maxRetries, onProgress) {
-    maxRetries = maxRetries || 5;
-    var lastError = null;
-    for (var attempt = 1; attempt <= maxRetries; attempt++) {
-      if (onProgress) onProgress(attempt, maxRetries);
-      try {
-        var upRes = await withTimeout(
-          sb.storage.from("tickets").upload(path, file, { upsert: true }),
-          20000 // give each attempt 20s to respond before giving up and retrying
-        );
-        if (upRes.error) throw upRes.error;
-        return { data: upRes.data, error: null };
-      } catch (err) {
-        lastError = err;
-        console.warn("Upload attempt " + attempt + " of " + maxRetries + " failed for " + file.name + ":", err && err.message ? err.message : err);
-        if (attempt < maxRetries) {
-          var delay = Math.min(1000 * Math.pow(2, attempt - 1), 15000); // 1s,2s,4s,8s,15s cap
-          await new Promise(function (r) { setTimeout(r, delay); });
+  // Uploads a file to Supabase Storage in small resumable chunks (TUS
+  // protocol) instead of one single request. This is built specifically
+  // for bad/flaky connections: if the connection drops mid-upload, only
+  // the current chunk is lost — already-uploaded chunks are remembered
+  // (via browser storage) and the upload picks back up from there,
+  // even after a page reload. A plain single-shot upload has to
+  // complete start-to-finish in one unbroken connection, which is why
+  // it kept failing; this doesn't need that.
+  function uploadTicketFileResumable(path, file, onProgress) {
+    return new Promise(function (resolve) {
+      var upload = new tus.Upload(file, {
+        endpoint: SUPABASE_URL + "/storage/v1/upload/resumable",
+        retryDelays: [0, 2000, 4000, 8000, 15000, 20000, 30000, 30000, 30000],
+        headers: {
+          authorization: "Bearer " + SUPABASE_ANON_KEY,
+          apikey: SUPABASE_ANON_KEY,
+          "x-upsert": "true"
+        },
+        uploadDataDuringCreation: true,
+        removeFingerprintOnSuccess: true,
+        metadata: {
+          bucketName: "tickets",
+          objectName: path,
+          contentType: file.type || "application/octet-stream",
+          cacheControl: "3600"
+        },
+        chunkSize: 6 * 1024 * 1024, // Supabase requires 6MB or 10MB chunks
+        onError: function (error) {
+          console.error("Resumable upload failed for " + file.name + ":", error);
+          resolve({ error: error });
+        },
+        onProgress: function (bytesUploaded, bytesTotal) {
+          if (onProgress) onProgress(bytesUploaded, bytesTotal);
+        },
+        onSuccess: function () {
+          resolve({ error: null });
         }
-      }
-    }
-    return { data: null, error: lastError };
+      });
+      upload.findPreviousUploads().then(function (previousUploads) {
+        if (previousUploads.length) {
+          upload.resumeFromPreviousUpload(previousUploads[0]);
+        }
+        upload.start();
+      }).catch(function (err) {
+        // If checking for previous uploads fails, still try a fresh start
+        console.warn("Could not check for previous uploads:", err);
+        upload.start();
+      });
+    });
   }
 
   // Fetches ALL ticket metadata rows for the current mode, paginated
@@ -1161,10 +1175,10 @@
       var safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
       var path=folder+Date.now()+"_"+i+"_"+safeName;
       var fileLabel="file "+(i+1)+" of "+files.length;
-      var upRes=await uploadTicketFileWithRetry(path,file,5,function(attempt,maxRetries){
-        btn.textContent = attempt===1
-          ? "Uploading "+fileLabel+"…"
-          : "Retrying "+fileLabel+" ("+attempt+"/"+maxRetries+")…";
+      btn.textContent = "Uploading "+fileLabel+"… 0%";
+      var upRes=await uploadTicketFileResumable(path,file,function(bytesUploaded,bytesTotal){
+        var pct = bytesTotal ? Math.floor((bytesUploaded/bytesTotal)*100) : 0;
+        btn.textContent = "Uploading "+fileLabel+"… "+pct+"%";
       });
       if(upRes.error){ console.error(upRes.error); failedNames.push(file.name); continue; }
       var insRes=await sb.from(ticketsTable()).insert([{date:date,file_path:path,file_name:file.name}]);
@@ -1175,14 +1189,14 @@
     filesInput.value="";
     if(successCount>0){
       okEl.textContent="✅ "+successCount+" ticket"+(successCount>1?"s":"")+" saved for "+fmtDate(date)+
-        (failedNames.length>0 ? " ("+failedNames.length+" failed after retries — see below)" : "")+".";
+        (failedNames.length>0 ? " ("+failedNames.length+" failed — see below)" : "")+".";
       okEl.style.display="block";
       await loadTicketsData();
       renderTickets();
       setTimeout(function(){okEl.style.display="none";},4000);
     }
     if(failedNames.length>0){
-      errEl.textContent="⚠️ Could not upload after several retries: "+failedNames.join(", ")+". Check your connection and try uploading just those files again.";
+      errEl.textContent="⚠️ Could not upload: "+failedNames.join(", ")+". Your progress on these was saved — just try uploading them again and it'll pick up where it left off instead of starting over.";
       errEl.style.display="block";
     }
   });
