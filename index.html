@@ -787,13 +787,30 @@
   // connections — shows up as ERR_NETWORK_IO_SUSPENDED or a generic
   // "Failed to fetch" in the console). onProgress(attempt, maxRetries)
   // is called before each attempt so the UI can show retry status.
+  // Races a promise against a timeout so a hung network request (dead
+  // connection with no response, no error) doesn't block forever.
+  function withTimeout(promise, ms) {
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () {
+        reject(new Error("Upload timed out after " + Math.round(ms / 1000) + "s (no response)"));
+      }, ms);
+      promise.then(
+        function (v) { clearTimeout(timer); resolve(v); },
+        function (e) { clearTimeout(timer); reject(e); }
+      );
+    });
+  }
+
   async function uploadTicketFileWithRetry(path, file, maxRetries, onProgress) {
     maxRetries = maxRetries || 5;
     var lastError = null;
     for (var attempt = 1; attempt <= maxRetries; attempt++) {
       if (onProgress) onProgress(attempt, maxRetries);
       try {
-        var upRes = await sb.storage.from("tickets").upload(path, file, { upsert: true });
+        var upRes = await withTimeout(
+          sb.storage.from("tickets").upload(path, file, { upsert: true }),
+          20000 // give each attempt 20s to respond before giving up and retrying
+        );
         if (upRes.error) throw upRes.error;
         return { data: upRes.data, error: null };
       } catch (err) {
