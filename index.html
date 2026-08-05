@@ -190,6 +190,7 @@
   <button class="tab-btn" onclick="showPage('reports')">📋 Reports</button>
   <button class="tab-btn" onclick="showPage('eom')">📄 EOM Report</button>
   <button class="tab-btn" onclick="showPage('tickets')">🧾 Scan Tickets</button>
+  <button class="tab-btn" onclick="showPage('dailylogs')">📄 Scan Daily Logs</button>
 </div>
 
 <!-- DASHBOARD -->
@@ -367,6 +368,56 @@
   </div>
 </div>
 
+<!-- SCAN DAILY LOGS -->
+<div class="page" id="page-dailylogs">
+  <div class="card">
+    <h2>📄 Scan Daily Logs</h2>
+    <p style="color:var(--text-secondary);margin-bottom:24px;">Upload scanned daily log files (PDF or image) and save them by date.</p>
+    <div id="dlog-ok" class="alert success"></div>
+    <div id="dlog-err" class="alert error"></div>
+    <div class="form-grid">
+      <div class="field"><label for="dlog-date">📅 Log Date</label><input type="date" id="dlog-date" /></div>
+      <div class="field" style="grid-column: span 2;"><label for="dlog-files">📎 Files (PDF or image, multiple allowed)</label><input type="file" id="dlog-files" accept=".pdf,image/*" multiple /></div>
+    </div>
+    <button class="btn success" id="dlog-upload-btn">📤 Upload Daily Logs</button>
+    <div id="dlog-queue-wrap" style="display:none;margin-top:20px;padding-top:20px;border-top:1px solid var(--border);"></div>
+  </div>
+
+  <div class="card">
+    <h2 id="dlog-list-title">Daily Logs</h2>
+    <div id="dlog-list"></div>
+  </div>
+
+  <div class="card">
+    <h2>📆 This Week's Scan Check</h2>
+    <p style="color:var(--text-secondary);margin-bottom:14px;font-size:14px;">Days with 0 daily logs are flagged in red.</p>
+    <div class="table-wrap">
+      <table><thead><tr><th>Date</th><th class="num">Logs Scanned</th></tr></thead><tbody id="dlog-week-body"></tbody></table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📅 Browse Daily Logs by Month</h2>
+    <p style="color:var(--text-secondary);margin-bottom:14px;font-size:14px;">Jump back to any day to view or re-download a daily log. Check boxes to select multiple days — hold Shift and click another box to select everything in between.</p>
+    <div class="report-controls" style="margin-bottom:0;">
+      <select id="dlog-month-select"></select>
+    </div>
+    <div id="dlog-bulk-bar" style="display:none;align-items:center;gap:12px;flex-wrap:wrap;border-radius:var(--radius);padding:12px 16px;margin-top:14px;">
+      <span id="dlog-bulk-count" style="font-weight:700;font-size:14px;"></span>
+      <button class="btn sm outline-prod" id="dlog-zip-btn">📦 Download as ZIP</button>
+      <button class="btn sm outline-prod" id="dlog-download-btn">⬇️ Download Individually</button>
+      <button class="btn sm outline-prod" id="dlog-print-btn">🖨️ Print Selected</button>
+      <button class="btn sm icon del" id="dlog-bulk-del-btn" style="border:2px solid var(--danger);color:var(--danger);">🗑 Delete Selected</button>
+    </div>
+    <div class="table-wrap" style="max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-top:14px;">
+      <table>
+        <thead><tr><th style="width:36px;"><input type="checkbox" id="dlog-select-all" /></th><th>Date</th><th class="num">Logs Scanned</th><th></th></tr></thead>
+        <tbody id="dlog-month-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -383,12 +434,16 @@
   var tickets = [];
   var selectedTixDates = new Set();
   var lastClickedTixDate = null;
+  var dailyLogs = [];
+  var selectedDlogDates = new Set();
+  var lastClickedDlogDate = null;
   var editingId = null;
   var currentPage = "dashboard";
 
   function loadsTable()   { return mode === "production" ? "loads" : "compressor_loads"; }
   function eomTable()     { return mode === "production" ? "eom_entries" : "compressor_eom_entries"; }
   function ticketsTable() { return mode === "production" ? "ticket_scans" : "compressor_ticket_scans"; }
+  function dailyLogsTable() { return mode === "production" ? "daily_log_scans" : "compressor_daily_log_scans"; }
   function accentClass() { return mode === "production" ? "prod" : "comp"; }
   function accentColor() { return mode === "production" ? "var(--accent)" : "var(--comp-accent)"; }
 
@@ -435,12 +490,13 @@
 
     loadData();
     loadTicketsData().then(renderTickets);
+    loadDailyLogsData().then(renderDailyLogs);
   }
 
   function updateTabStyles() {
     document.querySelectorAll(".tab-btn").forEach(function(b){ b.classList.remove("active","prod","comp"); });
     var tabs = document.querySelectorAll(".tab-btn");
-    var pages = ["dashboard","log","edit","reports","eom","tickets"];
+    var pages = ["dashboard","log","edit","reports","eom","tickets","dailylogs"];
     pages.forEach(function(pg, i){
       if(pg === currentPage){ tabs[i].classList.add("active", accentClass()); }
     });
@@ -464,6 +520,7 @@
     if(id==="reports") renderReports();
     if(id==="eom") renderEom();
     if(id==="tickets") renderTickets();
+    if(id==="dailylogs") renderDailyLogs();
   }
 
   // ── Supabase ───────────────────────────────────────────────────
@@ -513,9 +570,10 @@
     var keys={};
     loads.forEach(function(l){keys[monthKey(l.date)]=true;});
     tickets.forEach(function(t){keys[monthKey(t.date)]=true;});
+    dailyLogs.forEach(function(t){keys[monthKey(t.date)]=true;});
     var cur=monthKey(todayStr()); keys[cur]=true;
     var sorted=Object.keys(keys).sort().reverse();
-    ["edit-month-select","report-month-select","eom-month-select","tix-month-select"].forEach(function(id){
+    ["edit-month-select","report-month-select","eom-month-select","tix-month-select","dlog-month-select"].forEach(function(id){
       var sel=document.getElementById(id);
       var prev=sel.value; sel.innerHTML="";
       sorted.forEach(function(k){var o=document.createElement("option");o.value=k;o.textContent=monthLabel(k);sel.appendChild(o);});
@@ -864,15 +922,25 @@
   }
 
   // ── Offline Upload Queue (IndexedDB) ──────────────────────────────
-  // Ticket files are saved to the browser's local IndexedDB the instant
-  // you attach them — this step does NOT need a network connection at
-  // all. A background loop then tries to sync each queued file to
-  // Supabase whenever it can (every 20s, and immediately when the
-  // browser regains a connection), using the same chunked/resumable
-  // upload as before. Because the file lives in IndexedDB rather than
-  // the <input type=file> element, it survives page reloads and even
-  // closing the browser — queue up scans any time and it finishes
-  // uploading on its own whenever a signal shows up.
+  // Files are saved to the browser's local IndexedDB the instant you
+  // attach them — this step does NOT need a network connection at all.
+  // A background loop then tries to sync each queued file to Supabase
+  // whenever it can (every 20s, and immediately when the browser
+  // regains a connection), using the same chunked/resumable upload as
+  // before. Because the file lives in IndexedDB rather than the <input
+  // type=file> element, it survives page reloads and even closing the
+  // browser. This same queue/engine is shared by both Scan Tickets and
+  // Scan Daily Logs — each record just carries a "section" field
+  // ('tickets' or 'dailylogs') so it knows which table/folder to use.
+  var SCAN_SECTIONS = {
+    tickets:   { folderPrefix: "",           tableProd: "ticket_scans",         tableComp: "compressor_ticket_scans",         wrapId: "tix-queue-wrap",  btnPrefix: "tix" },
+    dailylogs: { folderPrefix: "dailylogs/", tableProd: "daily_log_scans",      tableComp: "compressor_daily_log_scans",      wrapId: "dlog-queue-wrap", btnPrefix: "dlog" }
+  };
+  function scanSectionTable(sectionKey, forMode) {
+    var cfg = SCAN_SECTIONS[sectionKey] || SCAN_SECTIONS.tickets;
+    return forMode === "production" ? cfg.tableProd : cfg.tableComp;
+  }
+
   var TIX_DB_NAME = "texcomPeakSwdTixQueue";
   var TIX_STORE = "pending";
   var tixDbPromise = null;
@@ -946,9 +1014,9 @@
     return tixQueueUpdate(id, { status: "done", completedAt: new Date().toISOString(), lastError: null });
   }
 
-  async function tixQueueClearDone() {
+  async function tixQueueClearDone(sectionKey) {
     var items = await tixQueueGetAll();
-    var done = items.filter(function (it) { return it.status === "done"; });
+    var done = items.filter(function (it) { return it.status === "done" && (it.section || "tickets") === sectionKey; });
     return Promise.all(done.map(function (it) { return tixQueueDelete(it.id); }));
   }
 
@@ -963,13 +1031,17 @@
     return days + " day" + (days !== 1 ? "s" : "") + " ago";
   }
 
-  async function renderTixQueue() {
-    var wrap = document.getElementById("tix-queue-wrap");
+  // Renders the pending/failed/synced panel for ONE section (tickets or
+  // dailylogs) into that section's own wrap element on its own page.
+  async function renderQueueSection(sectionKey) {
+    var cfg = SCAN_SECTIONS[sectionKey] || SCAN_SECTIONS.tickets;
+    var wrap = document.getElementById(cfg.wrapId);
     if (!wrap) return;
     var all = await tixQueueGetAll();
-    var pending = all.filter(function (it) { return it.status !== "done" && it.status !== "failed"; });
-    var failed = all.filter(function (it) { return it.status === "failed"; });
-    var done = all.filter(function (it) { return it.status === "done"; })
+    var mine = all.filter(function (it) { return (it.section || "tickets") === sectionKey; });
+    var pending = mine.filter(function (it) { return it.status !== "done" && it.status !== "failed"; });
+    var failed = mine.filter(function (it) { return it.status === "failed"; });
+    var done = mine.filter(function (it) { return it.status === "done"; })
       .sort(function (a, b) { return b.completedAt < a.completedAt ? -1 : 1; })
       .slice(0, 15);
     pending.sort(function (a, b) { return a.createdAt < b.createdAt ? -1 : 1; });
@@ -977,6 +1049,7 @@
     if (pending.length === 0 && done.length === 0 && failed.length === 0) { wrap.innerHTML = ""; wrap.style.display = "none"; return; }
     wrap.style.display = "block";
     var html = "";
+    var bp = cfg.btnPrefix;
 
     if (failed.length > 0) {
       html += '<div style="margin-bottom:16px;">' +
@@ -984,7 +1057,7 @@
         '<p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">These will not retry automatically — the fix has to happen on the file itself first.</p>';
       failed.forEach(function (it) {
         html += '<div class="load-row" style="border-color:var(--danger);"><div><div class="well-name">' + it.fileName + '</div><div class="load-meta" style="color:var(--danger);">' + fmtDate(it.date) + ' · ' + (it.lastError || "Failed") + '</div></div>' +
-          '<div class="load-actions"><button class="btn icon del tix-queue-remove-btn" data-id="' + it.id + '">🗑 Remove</button></div></div>';
+          '<div class="load-actions"><button class="btn icon del ' + bp + '-queue-remove-btn" data-id="' + it.id + '">🗑 Remove</button></div></div>';
       });
       html += '</div>';
     }
@@ -992,47 +1065,52 @@
     if (pending.length > 0) {
       html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">' +
         '<h3 style="font-size:16px;font-weight:700;">⏳ Pending Uploads (' + pending.length + ')</h3>' +
-        '<button class="btn sm outline-' + accentClass() + '" id="tix-sync-now-btn">🔄 Check Now</button></div>';
+        '<button class="btn sm outline-' + accentClass() + '" id="' + bp + '-sync-now-btn">🔄 Check Now</button></div>';
       html += '<p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">Saved on this device. Keeps retrying automatically — even if you close this tab and come back later — as long as you reopen it at some point on this same computer.</p>';
       pending.forEach(function (it) {
         var statusLabel = it.status === "uploading" ? ("Uploading… " + (it.progressPct || 0) + "%")
           : it.attempts > 0 ? ("Waiting to retry (tried " + it.attempts + " time" + (it.attempts !== 1 ? "s" : "") + ")")
           : "Queued, waiting for a good moment to upload…";
         html += '<div class="load-row"><div><div class="well-name">' + it.fileName + '</div><div class="load-meta">' + fmtDate(it.date) + ' · ' + statusLabel + '</div></div>' +
-          '<div class="load-actions"><button class="btn icon del tix-queue-remove-btn" data-id="' + it.id + '">🗑 Cancel</button></div></div>';
+          '<div class="load-actions"><button class="btn icon del ' + bp + '-queue-remove-btn" data-id="' + it.id + '">🗑 Cancel</button></div></div>';
       });
     }
 
     if (done.length > 0) {
       html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:' + (pending.length > 0 || failed.length > 0 ? '20px' : '0') + ';margin-bottom:10px;flex-wrap:wrap;gap:8px;">' +
         '<h3 style="font-size:16px;font-weight:700;color:var(--success);">✅ Recently Synced</h3>' +
-        '<button class="btn sm icon" id="tix-clear-done-btn">Clear this list</button></div>';
+        '<button class="btn sm icon" id="' + bp + '-clear-done-btn">Clear this list</button></div>';
       done.forEach(function (it) {
         html += '<div class="load-row" style="opacity:0.8;"><div><div class="well-name">' + it.fileName + '</div><div class="load-meta">' + fmtDate(it.date) + ' · Uploaded successfully · ' + timeAgo(it.completedAt) + '</div></div></div>';
       });
     }
 
     wrap.innerHTML = html;
-    wrap.querySelectorAll(".tix-queue-remove-btn").forEach(function (btn) {
+    wrap.querySelectorAll("." + bp + "-queue-remove-btn").forEach(function (btn) {
       btn.addEventListener("click", async function () {
         var id = Number(this.getAttribute("data-id"));
         if (!confirm("Cancel this pending upload? The file will be discarded.")) return;
         await tixQueueDelete(id);
-        renderTixQueue();
+        renderQueueSection(sectionKey);
       });
     });
-    var syncBtn = document.getElementById("tix-sync-now-btn");
+    var syncBtn = document.getElementById(bp + "-sync-now-btn");
     if (syncBtn) syncBtn.addEventListener("click", function () {
       syncBtn.textContent = "Checking…"; syncBtn.disabled = true;
       processTixQueue().then(function () {
         syncBtn.textContent = "🔄 Check Now"; syncBtn.disabled = false;
       });
     });
-    var clearBtn = document.getElementById("tix-clear-done-btn");
+    var clearBtn = document.getElementById(bp + "-clear-done-btn");
     if (clearBtn) clearBtn.addEventListener("click", async function () {
-      await tixQueueClearDone();
-      renderTixQueue();
+      await tixQueueClearDone(sectionKey);
+      renderQueueSection(sectionKey);
     });
+  }
+
+  function renderAllQueueSections() {
+    renderQueueSection("tickets");
+    renderQueueSection("dailylogs");
   }
 
   async function tixQueueResetStale() {
@@ -1058,6 +1136,8 @@
       var items = await tixQueueGetAll();
       for (var i = 0; i < items.length; i++) {
         var it = items[i];
+        var sectionKey = it.section || "tickets";
+        var cfg = SCAN_SECTIONS[sectionKey] || SCAN_SECTIONS.tickets;
         if (it.status === "uploading" || it.status === "done" || it.status === "failed") continue;
         // Catch anything queued before the size check existed (or from
         // an older version of this page) so it doesn't loop forever.
@@ -1066,30 +1146,33 @@
             status: "failed",
             lastError: "File is " + (it.fileSize / 1024 / 1024).toFixed(1) + "MB — over the 50MB limit on this account. Re-scan smaller and re-upload; this one will not retry."
           });
-          await renderTixQueue();
+          await renderQueueSection(sectionKey);
           continue;
         }
         await tixQueueUpdate(it.id, { status: "uploading", progressPct: 0 });
-        await renderTixQueue();
+        await renderQueueSection(sectionKey);
         var safeName = it.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-        var path = it.mode + "/" + it.date + "/" + it.fileSize + "_" + safeName;
+        var path = cfg.folderPrefix + it.mode + "/" + it.date + "/" + it.fileSize + "_" + safeName;
         var result;
         try {
           result = await uploadTicketFileResumable(path, it.blob, function (bytesUploaded, bytesTotal) {
             var pct = bytesTotal ? Math.floor((bytesUploaded / bytesTotal) * 100) : 0;
-            tixQueueUpdate(it.id, { progressPct: pct }).then(renderTixQueue);
+            tixQueueUpdate(it.id, { progressPct: pct }).then(function(){ renderQueueSection(sectionKey); });
           });
         } catch (err) {
           result = { error: err };
         }
         if (result && !result.error) {
-          var tbl = it.mode === "production" ? "ticket_scans" : "compressor_ticket_scans";
+          var tbl = scanSectionTable(sectionKey, it.mode);
           var insRes = await sb.from(tbl).insert([{ date: it.date, file_path: path, file_name: it.fileName }]);
           if (insRes.error) {
             await tixQueueUpdate(it.id, { status: "queued", lastError: "saved but not recorded yet", attempts: (it.attempts || 0) + 1 });
           } else {
             await tixQueueMarkDone(it.id);
-            if (it.mode === mode) { await loadTicketsData(); renderTickets(); }
+            if (it.mode === mode) {
+              if (sectionKey === "tickets") { await loadTicketsData(); renderTickets(); }
+              else { await loadDailyLogsData(); renderDailyLogs(); }
+            }
           }
         } else if (result && result.permanent) {
           var reason = result.statusCode === 413
@@ -1099,7 +1182,7 @@
         } else {
           await tixQueueUpdate(it.id, { status: "queued", lastError: "retry pending", attempts: (it.attempts || 0) + 1 });
         }
-        await renderTixQueue();
+        await renderQueueSection(sectionKey);
       }
     } finally {
       tixQueueProcessing = false;
@@ -1216,11 +1299,32 @@
       tbody.appendChild(tr);
     }
     tbody.querySelectorAll(".tix-view-day-btn").forEach(function(btn){
-      btn.addEventListener("click",function(){
+      btn.addEventListener("click",async function(){
         var ds=this.getAttribute("data-date");
-        document.getElementById("tix-date").value=ds;
-        renderTickets();
-        document.getElementById("tix-list-title").scrollIntoView({behavior:"smooth",block:"start"});
+        var dayTickets=tickets.filter(function(t){return t.date===ds;});
+        if(dayTickets.length===0) return;
+        if(dayTickets.length===1){
+          var url=sb.storage.from("tickets").getPublicUrl(dayTickets[0].file_path).data.publicUrl;
+          window.open(url,"_blank");
+          return;
+        }
+        var origText=this.textContent;
+        this.textContent="…"; this.disabled=true;
+        try{
+          var sorted=dayTickets.slice().sort(function(a,b){return a.uploaded_at<b.uploaded_at?-1:1;});
+          var result=await buildCombinedTicketsPdf(sorted);
+          if(!result.bytes || result.bytes.length===0){ throw new Error("No pages could be prepared."); }
+          var blob=new Blob([result.bytes],{type:"application/pdf"});
+          var burl=URL.createObjectURL(blob);
+          window.open(burl,"_blank");
+          if(result.skipped.length>0){
+            alert("Opened the combined file, but these couldn't be included (unsupported format):\n\n"+result.skipped.join("\n"));
+          }
+        } catch(err){
+          console.error(err);
+          alert("Could not open the files for this day: "+err.message);
+        }
+        this.textContent=origText; this.disabled=false;
       });
     });
     tbody.querySelectorAll(".tix-day-check").forEach(function(cb){
@@ -1424,6 +1528,297 @@
   document.getElementById("tix-date").value=todayStr();
   document.getElementById("tix-date").addEventListener("change",renderTickets);
 
+  // ── Scan Daily Logs (mirrors Scan Tickets above) ──────────────────
+  async function loadDailyLogsData() {
+    var all=[]; var pageSize=1000; var from=0;
+    while(true){
+      var res = await sb.from(dailyLogsTable()).select("*").order("date",{ascending:false}).range(from, from+pageSize-1);
+      if(res.error){ console.error(res.error); return; }
+      var batch = res.data||[];
+      all = all.concat(batch);
+      if(batch.length<pageSize) break;
+      from += pageSize;
+    }
+    dailyLogs = all;
+  }
+
+  function renderDailyLogs() {
+    var date=document.getElementById("dlog-date").value || todayStr();
+    var dayLogs=dailyLogs.filter(function(t){return t.date===date;});
+    document.getElementById("dlog-list-title").textContent="Daily Logs for "+fmtDate(date)+" ("+dayLogs.length+")";
+    var list=document.getElementById("dlog-list");
+    list.innerHTML="";
+    if(dayLogs.length===0){
+      list.innerHTML='<p style="color:var(--text-muted);font-size:15px;">No daily logs scanned in for this date yet.</p>';
+    } else {
+      dayLogs.slice().sort(function(a,b){return a.uploaded_at<b.uploaded_at?-1:1;}).forEach(function(t){
+        var url=sb.storage.from("tickets").getPublicUrl(t.file_path).data.publicUrl;
+        var row=document.createElement("div"); row.className="load-row";
+        row.innerHTML='<div><div class="well-name">'+(t.file_name||"Daily Log")+'</div><div class="load-meta">Uploaded '+(new Date(t.uploaded_at)).toLocaleTimeString()+'</div></div>'+
+          '<div class="load-actions"><a class="btn icon" href="'+url+'" target="_blank" rel="noopener">👁 View</a><button class="btn icon dlog-dl-btn">⬇️ Save As</button><button class="btn icon del dlog-del-btn">🗑</button></div>';
+        row.querySelector(".dlog-dl-btn").addEventListener("click",async function(){
+          var defaultName=t.file_name||(t.date+"_dailylog");
+          var newName=prompt("Save this daily log as:",defaultName);
+          if(newName===null) return;
+          newName=newName.trim();
+          if(!newName) return;
+          var ext=getExt(t.file_name||t.file_path);
+          if(ext && !/\.[a-zA-Z0-9]+$/.test(newName)) newName+=ext;
+          try{
+            var resp=await fetch(url);
+            var blob=await resp.blob();
+            var burl=URL.createObjectURL(blob);
+            var a=document.createElement("a");
+            a.href=burl; a.download=newName;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(function(){URL.revokeObjectURL(burl);},2000);
+          } catch(err){ console.error(err); alert("Could not download this file."); }
+        });
+        row.querySelector(".dlog-del-btn").addEventListener("click",async function(){
+          if(!confirm("Delete this scanned daily log? This cannot be undone.")) return;
+          await sb.storage.from("tickets").remove([t.file_path]);
+          await sb.from(dailyLogsTable()).delete().eq("id",t.id);
+          dailyLogs=dailyLogs.filter(function(x){return x.id!==t.id;});
+          renderDailyLogs();
+        });
+        list.appendChild(row);
+      });
+    }
+    var wbody=document.getElementById("dlog-week-body");
+    wbody.innerHTML="";
+    last7Days().forEach(function(ds){
+      var count=dailyLogs.filter(function(t){return t.date===ds;}).length;
+      var tr=document.createElement("tr");
+      var warn=count===0?' style="color:var(--danger);font-weight:700;"':'';
+      tr.innerHTML='<td>'+fmtDate(ds)+'</td><td class="num"'+warn+'>'+count+'</td>';
+      wbody.appendChild(tr);
+    });
+
+    populateMonthSelects();
+    renderDailyLogsMonth();
+  }
+
+  function renderDailyLogsMonth() {
+    var sel=document.getElementById("dlog-month-select");
+    var key=sel.value;
+    if(!key) return;
+    var parts=key.split("-");
+    var year=parseInt(parts[0],10); var month=parseInt(parts[1],10);
+    var daysInMonth=new Date(year,month,0).getDate();
+    var countByDate={};
+    dailyLogs.forEach(function(t){ if(monthKey(t.date)===key){ countByDate[t.date]=(countByDate[t.date]||0)+1; } });
+    var tbody=document.getElementById("dlog-month-body");
+    tbody.innerHTML="";
+    var dsInOrder=[];
+    for(var day=1; day<=daysInMonth; day++){
+      var ds=year+"-"+String(month).padStart(2,"0")+"-"+String(day).padStart(2,"0");
+      dsInOrder.push(ds);
+      var count=countByDate[ds]||0;
+      var mute=count===0?' style="color:var(--text-muted);"':'';
+      var checkDisabled=count===0?' disabled':'';
+      var checked=selectedDlogDates.has(ds)?' checked':'';
+      var btnAttrs=count===0?' disabled style="opacity:0.35;cursor:default;"':'';
+      var tr=document.createElement("tr");
+      tr.innerHTML='<td class="num" style="width:36px;"><input type="checkbox" class="dlog-day-check" data-date="'+ds+'"'+checkDisabled+checked+' /></td>'+
+        '<td'+mute+'>'+fmtDate(ds)+'</td><td class="num"'+mute+'>'+count+'</td><td class="num"><button class="btn icon dlog-view-day-btn" data-date="'+ds+'"'+btnAttrs+'>👁 View</button></td>';
+      tbody.appendChild(tr);
+    }
+    tbody.querySelectorAll(".dlog-view-day-btn").forEach(function(btn){
+      btn.addEventListener("click",async function(){
+        var ds=this.getAttribute("data-date");
+        var dayLogs=dailyLogs.filter(function(t){return t.date===ds;});
+        if(dayLogs.length===0) return;
+        if(dayLogs.length===1){
+          var url=sb.storage.from("tickets").getPublicUrl(dayLogs[0].file_path).data.publicUrl;
+          window.open(url,"_blank");
+          return;
+        }
+        var origText=this.textContent;
+        this.textContent="…"; this.disabled=true;
+        try{
+          var sorted=dayLogs.slice().sort(function(a,b){return a.uploaded_at<b.uploaded_at?-1:1;});
+          var result=await buildCombinedTicketsPdf(sorted);
+          if(!result.bytes || result.bytes.length===0){ throw new Error("No pages could be prepared."); }
+          var blob=new Blob([result.bytes],{type:"application/pdf"});
+          var burl=URL.createObjectURL(blob);
+          window.open(burl,"_blank");
+          if(result.skipped.length>0){
+            alert("Opened the combined file, but these couldn't be included (unsupported format):\n\n"+result.skipped.join("\n"));
+          }
+        } catch(err){
+          console.error(err);
+          alert("Could not open the files for this day: "+err.message);
+        }
+        this.textContent=origText; this.disabled=false;
+      });
+    });
+    tbody.querySelectorAll(".dlog-day-check").forEach(function(cb){
+      cb.addEventListener("click",function(e){
+        var ds=this.getAttribute("data-date");
+        if(e.shiftKey && lastClickedDlogDate){
+          var i1=dsInOrder.indexOf(lastClickedDlogDate);
+          var i2=dsInOrder.indexOf(ds);
+          if(i1>-1 && i2>-1){
+            var lo=Math.min(i1,i2), hi=Math.max(i1,i2);
+            for(var i=lo;i<=hi;i++){
+              var rds=dsInOrder[i];
+              if((countByDate[rds]||0)>0) selectedDlogDates.add(rds);
+            }
+          }
+        } else {
+          if(this.checked) selectedDlogDates.add(ds); else selectedDlogDates.delete(ds);
+        }
+        lastClickedDlogDate=ds;
+        renderDailyLogsMonth();
+      });
+    });
+    var selectAll=document.getElementById("dlog-select-all");
+    var datesWithLogs=dsInOrder.filter(function(ds){return (countByDate[ds]||0)>0;});
+    selectAll.checked = datesWithLogs.length>0 && datesWithLogs.every(function(ds){return selectedDlogDates.has(ds);});
+    selectAll.onchange=function(){
+      if(this.checked){ datesWithLogs.forEach(function(ds){selectedDlogDates.add(ds);}); }
+      else { datesWithLogs.forEach(function(ds){selectedDlogDates.delete(ds);}); }
+      renderDailyLogsMonth();
+    };
+    updateDlogBulkBar();
+  }
+
+  function getSelectedDailyLogs() {
+    return dailyLogs.filter(function(t){ return selectedDlogDates.has(t.date); });
+  }
+
+  function updateDlogBulkBar() {
+    var bar=document.getElementById("dlog-bulk-bar");
+    var countEl=document.getElementById("dlog-bulk-count");
+    var selLogs=getSelectedDailyLogs();
+    if(selectedDlogDates.size===0){ bar.style.display="none"; return; }
+    var isProd=mode==="production";
+    bar.style.background = isProd ? "var(--accent-light)" : "var(--comp-light)";
+    bar.style.border = "1px solid " + (isProd ? "#b8d4f8" : "#d8b4fe");
+    countEl.style.color = isProd ? "var(--accent)" : "var(--comp-accent)";
+    bar.style.display="flex";
+    countEl.textContent=selLogs.length+" log"+(selLogs.length!==1?"s":"")+" across "+selectedDlogDates.size+" day"+(selectedDlogDates.size!==1?"s":"")+" selected";
+  }
+
+  document.getElementById("dlog-zip-btn").addEventListener("click",async function(){
+    var btn=this;
+    var selLogs=getSelectedDailyLogs();
+    if(selLogs.length===0) return;
+    btn.textContent="Zipping…"; btn.disabled=true;
+    try{
+      var zip=new JSZip();
+      for(var i=0;i<selLogs.length;i++){
+        var t=selLogs[i];
+        var url=sb.storage.from("tickets").getPublicUrl(t.file_path).data.publicUrl;
+        var resp=await fetch(url);
+        var blob=await resp.blob();
+        var name=t.date+"_"+(t.file_name||("dailylog_"+i));
+        zip.file(name,blob);
+      }
+      var content=await zip.generateAsync({type:"blob"});
+      var zurl=URL.createObjectURL(content);
+      var a=document.createElement("a"); a.href=zurl;
+      a.download="Texcom Peak SWD Daily Logs - "+(mode==="production"?"Production":"Compressor")+".zip";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){URL.revokeObjectURL(zurl);},1000);
+    } catch(err){
+      console.error(err);
+      alert("Could not build the zip file: "+err.message);
+    }
+    btn.textContent="📦 Download as ZIP"; btn.disabled=false;
+  });
+
+  document.getElementById("dlog-download-btn").addEventListener("click",async function(){
+    var btn=this;
+    var selLogs=getSelectedDailyLogs();
+    if(selLogs.length===0) return;
+    btn.disabled=true; btn.textContent="Downloading…";
+    for(var i=0;i<selLogs.length;i++){
+      var t=selLogs[i];
+      var defaultName=t.date+"_"+(t.file_name||("dailylog_"+i));
+      var newName=prompt("Save file "+(i+1)+" of "+selLogs.length+" as: (Cancel to skip this one)",defaultName);
+      if(newName===null) continue;
+      newName=newName.trim();
+      if(!newName) continue;
+      var ext=getExt(t.file_name||t.file_path);
+      if(ext && !/\.[a-zA-Z0-9]+$/.test(newName)) newName+=ext;
+      try{
+        var url=sb.storage.from("tickets").getPublicUrl(t.file_path).data.publicUrl;
+        var resp=await fetch(url);
+        var blob=await resp.blob();
+        var burl=URL.createObjectURL(blob);
+        var a=document.createElement("a");
+        a.href=burl; a.download=newName;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        (function(u){ setTimeout(function(){URL.revokeObjectURL(u);},2000); })(burl);
+        await new Promise(function(r){setTimeout(r,350);});
+      } catch(err){ console.error(err); }
+    }
+    btn.disabled=false; btn.textContent="⬇️ Download Individually";
+  });
+
+  document.getElementById("dlog-print-btn").addEventListener("click",async function(){
+    var btn=this;
+    var selLogs=getSelectedDailyLogs().slice().sort(function(a,b){return a.date<b.date?-1:1;});
+    if(selLogs.length===0) return;
+    var origText=btn.textContent;
+    btn.disabled=true; btn.textContent="Preparing…";
+    try{
+      var result=await buildCombinedTicketsPdf(selLogs);
+      if(!result.bytes || result.bytes.length===0){ throw new Error("No pages could be prepared."); }
+      var blob=new Blob([result.bytes],{type:"application/pdf"});
+      var url=URL.createObjectURL(blob);
+      var win=window.open(url,"_blank");
+      if(!win){
+        alert("Please allow pop-ups for this site to view/print the combined daily log PDF.");
+      } else {
+        setTimeout(function(){ try{ win.focus(); win.print(); } catch(e){ console.warn(e); } },900);
+      }
+      if(result.skipped.length>0){
+        alert("The combined PDF is ready, but these files couldn't be included (unsupported format):\n\n"+result.skipped.join("\n"));
+      }
+    } catch(err){
+      console.error(err);
+      alert("Could not build the combined PDF: "+err.message);
+    }
+    btn.disabled=false; btn.textContent=origText;
+  });
+
+  document.getElementById("dlog-bulk-del-btn").addEventListener("click",async function(){
+    var btn=this;
+    var selLogs=getSelectedDailyLogs();
+    if(selLogs.length===0) return;
+    var dayCount=selectedDlogDates.size;
+    var ok=confirm("Delete "+selLogs.length+" log"+(selLogs.length!==1?"s":"")+" across "+dayCount+" day"+(dayCount!==1?"s":"")+"? This cannot be undone.");
+    if(!ok) return;
+    var origText=btn.textContent;
+    btn.disabled=true; btn.textContent="Deleting…";
+    var failed=[];
+    for(var i=0;i<selLogs.length;i++){
+      var t=selLogs[i];
+      try{
+        await sb.storage.from("tickets").remove([t.file_path]);
+        var res=await sb.from(dailyLogsTable()).delete().eq("id",t.id);
+        if(res.error) throw res.error;
+      } catch(err){
+        console.error("Could not delete daily log:",t,err);
+        failed.push(fmtDate(t.date)+" — "+(t.file_name||t.file_path));
+      }
+    }
+    await loadDailyLogsData();
+    selectedDlogDates.clear();
+    renderDailyLogs();
+    btn.disabled=false; btn.textContent=origText;
+    if(failed.length>0){
+      alert("Some daily logs could not be deleted:\n\n"+failed.join("\n"));
+    }
+  });
+
+  document.getElementById("dlog-month-select").addEventListener("change",renderDailyLogsMonth);
+
+  document.getElementById("dlog-date").value=todayStr();
+  document.getElementById("dlog-date").addEventListener("change",renderDailyLogs);
+
   // Supabase free-tier projects have a hard 50MB global file size limit
   // that cannot be raised without upgrading. Files over this size are
   // rejected instantly by the server (HTTP 413) no matter how good the
@@ -1431,55 +1826,67 @@
   // and refuse to queue anything that can never succeed.
   var MAX_TICKET_FILE_BYTES = 50 * 1024 * 1024;
 
-  document.getElementById("tix-upload-btn").addEventListener("click",async function(){
-    var btn=this;
-    var date=document.getElementById("tix-date").value;
-    var filesInput=document.getElementById("tix-files");
-    var files=filesInput.files;
-    var errEl=document.getElementById("tix-err");
-    var okEl=document.getElementById("tix-ok");
-    errEl.style.display="none"; okEl.style.display="none";
-    if(!date||!files||files.length===0){
-      errEl.textContent="⚠️ Choose a date and at least one file.";
-      errEl.style.display="block"; return;
-    }
-    var tooLarge=[];
-    var acceptedFiles=[];
-    for(var i=0;i<files.length;i++){
-      if(files[i].size>MAX_TICKET_FILE_BYTES){ tooLarge.push(files[i]); }
-      else { acceptedFiles.push(files[i]); }
-    }
-    if(tooLarge.length>0){
-      var list=tooLarge.map(function(f){return f.name+" ("+(f.size/1024/1024).toFixed(1)+"MB)";}).join(", ");
-      errEl.textContent="⚠️ Too large to upload (50MB limit on this account): "+list+". Re-scan at a lower resolution/grayscale and try again — these were not queued.";
-      errEl.style.display="block";
-    }
-    if(acceptedFiles.length===0){ return; }
-    btn.disabled=true; btn.textContent="Saving to this device…";
-    // Save straight to IndexedDB — this is instant and needs no network
-    // at all. The background queue (processTixQueue, running on its own
-    // timer) picks these up and syncs them to Supabase whenever it can.
-    for(var j=0;j<acceptedFiles.length;j++){
-      var file=acceptedFiles[j];
-      await tixQueueAdd({
-        date: date,
-        fileName: file.name,
-        fileSize: file.size,
-        mode: mode,
-        blob: file,
-        status: "queued",
-        attempts: 0,
-        lastError: null,
-        createdAt: new Date().toISOString()
-      });
-    }
-    btn.textContent="📤 Upload Tickets"; btn.disabled=false;
-    filesInput.value="";
-    okEl.textContent="✅ "+acceptedFiles.length+" file"+(acceptedFiles.length>1?"s":"")+" saved on this device for "+fmtDate(date)+" and queued to upload — it'll sync automatically, no need to keep this tab open on the same file.";
-    okEl.style.display="block";
-    setTimeout(function(){okEl.style.display="none";},5000);
-    renderTixQueue();
-    processTixQueue();
+  // Shared by both Scan Tickets and Scan Daily Logs. Queues files
+  // straight into IndexedDB (instant, no network needed) for the
+  // background sync loop to pick up.
+  function setupScanUploadButton(sectionKey, ids) {
+    document.getElementById(ids.uploadBtn).addEventListener("click", async function () {
+      var btn = this;
+      var date = document.getElementById(ids.dateInput).value;
+      var filesInput = document.getElementById(ids.filesInput);
+      var files = filesInput.files;
+      var errEl = document.getElementById(ids.errEl);
+      var okEl = document.getElementById(ids.okEl);
+      errEl.style.display = "none"; okEl.style.display = "none";
+      if (!date || !files || files.length === 0) {
+        errEl.textContent = "⚠️ Choose a date and at least one file.";
+        errEl.style.display = "block"; return;
+      }
+      var tooLarge = [];
+      var acceptedFiles = [];
+      for (var i = 0; i < files.length; i++) {
+        if (files[i].size > MAX_TICKET_FILE_BYTES) { tooLarge.push(files[i]); }
+        else { acceptedFiles.push(files[i]); }
+      }
+      if (tooLarge.length > 0) {
+        var list = tooLarge.map(function (f) { return f.name + " (" + (f.size / 1024 / 1024).toFixed(1) + "MB)"; }).join(", ");
+        errEl.textContent = "⚠️ Too large to upload (50MB limit on this account): " + list + ". Re-scan at a lower resolution/grayscale and try again — these were not queued.";
+        errEl.style.display = "block";
+      }
+      if (acceptedFiles.length === 0) { return; }
+      btn.disabled = true; btn.textContent = "Saving to this device…";
+      for (var j = 0; j < acceptedFiles.length; j++) {
+        var file = acceptedFiles[j];
+        await tixQueueAdd({
+          section: sectionKey,
+          date: date,
+          fileName: file.name,
+          fileSize: file.size,
+          mode: mode,
+          blob: file,
+          status: "queued",
+          attempts: 0,
+          lastError: null,
+          createdAt: new Date().toISOString()
+        });
+      }
+      btn.textContent = ids.uploadBtnLabel; btn.disabled = false;
+      filesInput.value = "";
+      okEl.textContent = "✅ " + acceptedFiles.length + " file" + (acceptedFiles.length > 1 ? "s" : "") + " saved on this device for " + fmtDate(date) + " and queued to upload — it'll sync automatically, no need to keep this tab open on the same file.";
+      okEl.style.display = "block";
+      setTimeout(function () { okEl.style.display = "none"; }, 5000);
+      renderQueueSection(sectionKey);
+      processTixQueue();
+    });
+  }
+
+  setupScanUploadButton("tickets", {
+    uploadBtn: "tix-upload-btn", dateInput: "tix-date", filesInput: "tix-files",
+    errEl: "tix-err", okEl: "tix-ok", uploadBtnLabel: "📤 Upload Tickets"
+  });
+  setupScanUploadButton("dailylogs", {
+    uploadBtn: "dlog-upload-btn", dateInput: "dlog-date", filesInput: "dlog-files",
+    errEl: "dlog-err", okEl: "dlog-ok", uploadBtnLabel: "📤 Upload Daily Logs"
   });
 
   // ── Autocomplete ───────────────────────────────────────────────
@@ -1596,8 +2003,9 @@
 
   loadData();
   loadTicketsData().then(renderTickets);
+  loadDailyLogsData().then(renderDailyLogs);
   tixQueueResetStale().then(function(){
-    renderTixQueue();
+    renderAllQueueSections();
     processTixQueue();
   });
 </script>
