@@ -1020,6 +1020,22 @@
     });
   }
 
+  async function tixQueueResetStale() {
+    // Any record still marked "uploading" when the page loads must be
+    // left over from a previous session that ended abruptly (closed tab,
+    // reload, crash) mid-upload. Nothing can genuinely still be "in
+    // progress" across a fresh page load, so leaving it marked that way
+    // is a bug: processTixQueue() skips items already marked "uploading"
+    // to avoid double-processing, which meant these got stuck forever
+    // showing a stale percentage and never actually retrying. Reset them
+    // to "queued" so they get picked up again.
+    var items = await tixQueueGetAll();
+    var stale = items.filter(function (it) { return it.status === "uploading"; });
+    return Promise.all(stale.map(function (it) {
+      return tixQueueUpdate(it.id, { status: "queued" });
+    }));
+  }
+
   async function processTixQueue() {
     if (tixQueueProcessing) return;
     tixQueueProcessing = true;
@@ -1531,8 +1547,10 @@
 
   loadData();
   loadTicketsData().then(renderTickets);
-  renderTixQueue();
-  processTixQueue();
+  tixQueueResetStale().then(function(){
+    renderTixQueue();
+    processTixQueue();
+  });
 </script>
 </body>
 </html>
