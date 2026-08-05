@@ -329,6 +329,7 @@
       <div class="field" style="grid-column: span 2;"><label for="tix-files">📎 Files (PDF or image, multiple allowed)</label><input type="file" id="tix-files" accept=".pdf,image/*" multiple /></div>
     </div>
     <button class="btn success" id="tix-upload-btn">📤 Upload Tickets</button>
+    <div id="tix-queue-wrap" style="display:none;margin-top:20px;padding-top:20px;border-top:1px solid var(--border);"></div>
   </div>
 
   <div class="card">
@@ -859,6 +860,209 @@
     });
   }
 
+  // ── Offline Upload Queue (IndexedDB) ──────────────────────────────
+  // Ticket files are saved to the browser's local IndexedDB the instant
+  // you attach them — this step does NOT need a network connection at
+  // all. A background loop then tries to sync each queued file to
+  // Supabase whenever it can (every 20s, and immediately when the
+  // browser regains a connection), using the same chunked/resumable
+  // upload as before. Because the file lives in IndexedDB rather than
+  // the <input type=file> element, it survives page reloads and even
+  // closing the browser — queue up scans any time and it finishes
+  // uploading on its own whenever a signal shows up.
+  var TIX_DB_NAME = "texcomPeakSwdTixQueue";
+  var TIX_STORE = "pending";
+  var tixDbPromise = null;
+  var tixQueueProcessing = false;
+
+  function openTixQueueDb() {
+    if (tixDbPromise) return tixDbPromise;
+    tixDbPromise = new Promise(function (resolve, reject) {
+      var req = indexedDB.open(TIX_DB_NAME, 1);
+      req.onupgradeneeded = function () {
+        var db = req.result;
+        if (!db.objectStoreNames.contains(TIX_STORE)) {
+          db.createObjectStore(TIX_STORE, { keyPath: "id", autoIncrement: true });
+        }
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error); };
+    });
+    return tixDbPromise;
+  }
+
+  async function tixQueueAdd(record) {
+    var db = await openTixQueueDb();
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(TIX_STORE, "readwrite");
+      var req = tx.objectStore(TIX_STORE).add(record);
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error); };
+    });
+  }
+
+  async function tixQueueGetAll() {
+    var db = await openTixQueueDb();
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(TIX_STORE, "readonly");
+      var req = tx.objectStore(TIX_STORE).getAll();
+      req.onsuccess = function () { resolve(req.result || []); };
+      req.onerror = function () { reject(req.error); };
+    });
+  }
+
+  async function tixQueueUpdate(id, fields) {
+    var db = await openTixQueueDb();
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(TIX_STORE, "readwrite");
+      var store = tx.objectStore(TIX_STORE);
+      var getReq = store.get(id);
+      getReq.onsuccess = function () {
+        var rec = getReq.result;
+        if (!rec) { resolve(); return; }
+        Object.assign(rec, fields);
+        var putReq = store.put(rec);
+        putReq.onsuccess = function () { resolve(); };
+        putReq.onerror = function () { reject(putReq.error); };
+      };
+      getReq.onerror = function () { reject(getReq.error); };
+    });
+  }
+
+  async function tixQueueDelete(id) {
+    var db = await openTixQueueDb();
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(TIX_STORE, "readwrite");
+      var req = tx.objectStore(TIX_STORE).delete(id);
+      req.onsuccess = function () { resolve(); };
+      req.onerror = function () { reject(req.error); };
+    });
+  }
+
+  async function tixQueueMarkDone(id) {
+    return tixQueueUpdate(id, { status: "done", completedAt: new Date().toISOString(), lastError: null });
+  }
+
+  async function tixQueueClearDone() {
+    var items = await tixQueueGetAll();
+    var done = items.filter(function (it) { return it.status === "done"; });
+    return Promise.all(done.map(function (it) { return tixQueueDelete(it.id); }));
+  }
+
+  function timeAgo(iso) {
+    var diffMs = Date.now() - new Date(iso).getTime();
+    var mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return mins + " min ago";
+    var hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + " hr" + (hrs !== 1 ? "s" : "") + " ago";
+    var days = Math.floor(hrs / 24);
+    return days + " day" + (days !== 1 ? "s" : "") + " ago";
+  }
+
+  async function renderTixQueue() {
+    var wrap = document.getElementById("tix-queue-wrap");
+    if (!wrap) return;
+    var all = await tixQueueGetAll();
+    var pending = all.filter(function (it) { return it.status !== "done"; });
+    var done = all.filter(function (it) { return it.status === "done"; })
+      .sort(function (a, b) { return b.completedAt < a.completedAt ? -1 : 1; })
+      .slice(0, 15);
+    pending.sort(function (a, b) { return a.createdAt < b.createdAt ? -1 : 1; });
+
+    if (pending.length === 0 && done.length === 0) { wrap.innerHTML = ""; wrap.style.display = "none"; return; }
+    wrap.style.display = "block";
+    var html = "";
+
+    if (pending.length > 0) {
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">' +
+        '<h3 style="font-size:16px;font-weight:700;">⏳ Pending Uploads (' + pending.length + ')</h3>' +
+        '<button class="btn sm outline-' + accentClass() + '" id="tix-sync-now-btn">🔄 Check Now</button></div>';
+      html += '<p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">Saved on this device. Keeps retrying automatically — even if you close this tab and come back later — as long as you reopen it at some point on this same computer.</p>';
+      pending.forEach(function (it) {
+        var statusLabel = it.status === "uploading" ? ("Uploading… " + (it.progressPct || 0) + "%")
+          : it.attempts > 0 ? ("Waiting to retry (tried " + it.attempts + " time" + (it.attempts !== 1 ? "s" : "") + ")")
+          : "Queued, waiting for a good moment to upload…";
+        html += '<div class="load-row"><div><div class="well-name">' + it.fileName + '</div><div class="load-meta">' + fmtDate(it.date) + ' · ' + statusLabel + '</div></div>' +
+          '<div class="load-actions"><button class="btn icon del tix-queue-remove-btn" data-id="' + it.id + '">🗑 Cancel</button></div></div>';
+      });
+    }
+
+    if (done.length > 0) {
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:' + (pending.length > 0 ? '20px' : '0') + ';margin-bottom:10px;flex-wrap:wrap;gap:8px;">' +
+        '<h3 style="font-size:16px;font-weight:700;color:var(--success);">✅ Recently Synced</h3>' +
+        '<button class="btn sm icon" id="tix-clear-done-btn">Clear this list</button></div>';
+      done.forEach(function (it) {
+        html += '<div class="load-row" style="opacity:0.8;"><div><div class="well-name">' + it.fileName + '</div><div class="load-meta">' + fmtDate(it.date) + ' · Uploaded successfully · ' + timeAgo(it.completedAt) + '</div></div></div>';
+      });
+    }
+
+    wrap.innerHTML = html;
+    wrap.querySelectorAll(".tix-queue-remove-btn").forEach(function (btn) {
+      btn.addEventListener("click", async function () {
+        var id = Number(this.getAttribute("data-id"));
+        if (!confirm("Cancel this pending upload? The file will be discarded.")) return;
+        await tixQueueDelete(id);
+        renderTixQueue();
+      });
+    });
+    var syncBtn = document.getElementById("tix-sync-now-btn");
+    if (syncBtn) syncBtn.addEventListener("click", function () {
+      syncBtn.textContent = "Checking…"; syncBtn.disabled = true;
+      processTixQueue().then(function () {
+        syncBtn.textContent = "🔄 Check Now"; syncBtn.disabled = false;
+      });
+    });
+    var clearBtn = document.getElementById("tix-clear-done-btn");
+    if (clearBtn) clearBtn.addEventListener("click", async function () {
+      await tixQueueClearDone();
+      renderTixQueue();
+    });
+  }
+
+  async function processTixQueue() {
+    if (tixQueueProcessing) return;
+    tixQueueProcessing = true;
+    try {
+      var items = await tixQueueGetAll();
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        if (it.status === "uploading" || it.status === "done") continue;
+        await tixQueueUpdate(it.id, { status: "uploading", progressPct: 0 });
+        await renderTixQueue();
+        var safeName = it.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+        var path = it.mode + "/" + it.date + "/" + it.fileSize + "_" + safeName;
+        var result;
+        try {
+          result = await uploadTicketFileResumable(path, it.blob, function (bytesUploaded, bytesTotal) {
+            var pct = bytesTotal ? Math.floor((bytesUploaded / bytesTotal) * 100) : 0;
+            tixQueueUpdate(it.id, { progressPct: pct }).then(renderTixQueue);
+          });
+        } catch (err) {
+          result = { error: err };
+        }
+        if (result && !result.error) {
+          var tbl = it.mode === "production" ? "ticket_scans" : "compressor_ticket_scans";
+          var insRes = await sb.from(tbl).insert([{ date: it.date, file_path: path, file_name: it.fileName }]);
+          if (insRes.error) {
+            await tixQueueUpdate(it.id, { status: "queued", lastError: "saved but not recorded yet", attempts: (it.attempts || 0) + 1 });
+          } else {
+            await tixQueueMarkDone(it.id);
+            if (it.mode === mode) { await loadTicketsData(); renderTickets(); }
+          }
+        } else {
+          await tixQueueUpdate(it.id, { status: "queued", lastError: "retry pending", attempts: (it.attempts || 0) + 1 });
+        }
+        await renderTixQueue();
+      }
+    } finally {
+      tixQueueProcessing = false;
+    }
+  }
+
+  setInterval(processTixQueue, 20000);
+  window.addEventListener("online", processTixQueue);
+
   // Fetches ALL ticket metadata rows for the current mode, paginated
   // in batches of 1000 (same safeguard as loadData()).
   async function loadTicketsData() {
@@ -1186,52 +1390,31 @@
       errEl.textContent="⚠️ Choose a date and at least one file.";
       errEl.style.display="block"; return;
     }
-    btn.disabled=true;
-    var folder=mode+"/"+date+"/";
-    var successCount=0;
-    var failedNames=[];
+    btn.disabled=true; btn.textContent="Saving to this device…";
+    // Save straight to IndexedDB — this is instant and needs no network
+    // at all. The background queue (processTixQueue, running on its own
+    // timer) picks these up and syncs them to Supabase whenever it can.
     for(var i=0;i<files.length;i++){
       var file=files[i];
-      var safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
-      // IMPORTANT: this path must stay the SAME across retries/rounds/clicks
-      // for the same file, or the resumable upload can't find its own
-      // progress to continue from. It's based on the file's name+size
-      // (stable) rather than a timestamp (which changed every click).
-      var path=folder+file.size+"_"+safeName;
-      var fileLabel="file "+(i+1)+" of "+files.length;
-      btn.textContent = "Uploading "+fileLabel+"… 0%";
-      var upRes=await uploadTicketFileResumableWithRounds(path,file,function(bytesUploaded,bytesTotal,round,maxRounds){
-        var pct = bytesTotal ? Math.floor((bytesUploaded/bytesTotal)*100) : 0;
-        btn.textContent = round>1
-          ? "Resuming "+fileLabel+"… "+pct+"% (round "+round+"/"+maxRounds+")"
-          : "Uploading "+fileLabel+"… "+pct+"%";
-      },8);
-      if(upRes.error){ console.error(upRes.error); failedNames.push(file); continue; }
-      var insRes=await sb.from(ticketsTable()).insert([{date:date,file_path:path,file_name:file.name}]);
-      if(insRes.error){ console.error(insRes.error); failedNames.push(file); continue; }
-      successCount++;
+      await tixQueueAdd({
+        date: date,
+        fileName: file.name,
+        fileSize: file.size,
+        mode: mode,
+        blob: file,
+        status: "queued",
+        attempts: 0,
+        lastError: null,
+        createdAt: new Date().toISOString()
+      });
     }
     btn.textContent="📤 Upload Tickets"; btn.disabled=false;
-    // Only clear the file picker if EVERYTHING succeeded. If anything
-    // failed, we deliberately leave the files attached so you don't have
-    // to reselect them — just click "Upload Tickets" again and it will
-    // resume the failed ones from wherever they left off.
-    if(failedNames.length===0){
-      filesInput.value="";
-    }
-    if(successCount>0){
-      okEl.textContent="✅ "+successCount+" ticket"+(successCount>1?"s":"")+" saved for "+fmtDate(date)+
-        (failedNames.length>0 ? " ("+failedNames.length+" still need to finish — see below)" : "")+".";
-      okEl.style.display="block";
-      await loadTicketsData();
-      renderTickets();
-      setTimeout(function(){okEl.style.display="none";},4000);
-    }
-    if(failedNames.length>0){
-      var names=failedNames.map(function(f){return f.name;}).join(", ");
-      errEl.textContent="⚠️ Still uploading: "+names+". These files are still attached above — your progress on them was saved, so just click \"Upload Tickets\" again (no need to reselect) and it'll continue from where it stopped instead of starting over.";
-      errEl.style.display="block";
-    }
+    filesInput.value="";
+    okEl.textContent="✅ "+files.length+" file"+(files.length>1?"s":"")+" saved on this device for "+fmtDate(date)+" and queued to upload — it'll sync automatically, no need to keep this tab open on the same file.";
+    okEl.style.display="block";
+    setTimeout(function(){okEl.style.display="none";},5000);
+    renderTixQueue();
+    processTixQueue();
   });
 
   // ── Autocomplete ───────────────────────────────────────────────
@@ -1348,6 +1531,8 @@
 
   loadData();
   loadTicketsData().then(renderTickets);
+  renderTixQueue();
+  processTixQueue();
 </script>
 </body>
 </html>
