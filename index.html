@@ -838,7 +838,10 @@
         chunkSize: 6 * 1024 * 1024, // Supabase requires 6MB or 10MB chunks
         onError: function (error) {
           console.error("Resumable upload failed for " + file.name + ":", error);
-          resolve({ error: error });
+          var status = error && error.originalResponse && typeof error.originalResponse.getStatus === "function"
+            ? error.originalResponse.getStatus() : null;
+          var isPermanent = status === 413 || status === 415 || status === 400 || status === 422;
+          resolve({ error: error, permanent: isPermanent, statusCode: status });
         },
         onProgress: function (bytesUploaded, bytesTotal) {
           if (onProgress) onProgress(bytesUploaded, bytesTotal);
@@ -964,15 +967,27 @@
     var wrap = document.getElementById("tix-queue-wrap");
     if (!wrap) return;
     var all = await tixQueueGetAll();
-    var pending = all.filter(function (it) { return it.status !== "done"; });
+    var pending = all.filter(function (it) { return it.status !== "done" && it.status !== "failed"; });
+    var failed = all.filter(function (it) { return it.status === "failed"; });
     var done = all.filter(function (it) { return it.status === "done"; })
       .sort(function (a, b) { return b.completedAt < a.completedAt ? -1 : 1; })
       .slice(0, 15);
     pending.sort(function (a, b) { return a.createdAt < b.createdAt ? -1 : 1; });
 
-    if (pending.length === 0 && done.length === 0) { wrap.innerHTML = ""; wrap.style.display = "none"; return; }
+    if (pending.length === 0 && done.length === 0 && failed.length === 0) { wrap.innerHTML = ""; wrap.style.display = "none"; return; }
     wrap.style.display = "block";
     var html = "";
+
+    if (failed.length > 0) {
+      html += '<div style="margin-bottom:16px;">' +
+        '<h3 style="font-size:16px;font-weight:700;color:var(--danger);margin-bottom:10px;">⚠️ Needs Attention (' + failed.length + ')</h3>' +
+        '<p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">These will not retry automatically — the fix has to happen on the file itself first.</p>';
+      failed.forEach(function (it) {
+        html += '<div class="load-row" style="border-color:var(--danger);"><div><div class="well-name">' + it.fileName + '</div><div class="load-meta" style="color:var(--danger);">' + fmtDate(it.date) + ' · ' + (it.lastError || "Failed") + '</div></div>' +
+          '<div class="load-actions"><button class="btn icon del tix-queue-remove-btn" data-id="' + it.id + '">🗑 Remove</button></div></div>';
+      });
+      html += '</div>';
+    }
 
     if (pending.length > 0) {
       html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">' +
@@ -989,7 +1004,7 @@
     }
 
     if (done.length > 0) {
-      html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:' + (pending.length > 0 ? '20px' : '0') + ';margin-bottom:10px;flex-wrap:wrap;gap:8px;">' +
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:' + (pending.length > 0 || failed.length > 0 ? '20px' : '0') + ';margin-bottom:10px;flex-wrap:wrap;gap:8px;">' +
         '<h3 style="font-size:16px;font-weight:700;color:var(--success);">✅ Recently Synced</h3>' +
         '<button class="btn sm icon" id="tix-clear-done-btn">Clear this list</button></div>';
       done.forEach(function (it) {
@@ -1043,7 +1058,17 @@
       var items = await tixQueueGetAll();
       for (var i = 0; i < items.length; i++) {
         var it = items[i];
-        if (it.status === "uploading" || it.status === "done") continue;
+        if (it.status === "uploading" || it.status === "done" || it.status === "failed") continue;
+        // Catch anything queued before the size check existed (or from
+        // an older version of this page) so it doesn't loop forever.
+        if (it.fileSize > MAX_TICKET_FILE_BYTES) {
+          await tixQueueUpdate(it.id, {
+            status: "failed",
+            lastError: "File is " + (it.fileSize / 1024 / 1024).toFixed(1) + "MB — over the 50MB limit on this account. Re-scan smaller and re-upload; this one will not retry."
+          });
+          await renderTixQueue();
+          continue;
+        }
         await tixQueueUpdate(it.id, { status: "uploading", progressPct: 0 });
         await renderTixQueue();
         var safeName = it.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -1066,6 +1091,11 @@
             await tixQueueMarkDone(it.id);
             if (it.mode === mode) { await loadTicketsData(); renderTickets(); }
           }
+        } else if (result && result.permanent) {
+          var reason = result.statusCode === 413
+            ? "File is too large for this account's 50MB limit — will not retry. Re-scan smaller and re-upload."
+            : "Upload rejected (won't succeed on retry) — check the file and re-upload.";
+          await tixQueueUpdate(it.id, { status: "failed", lastError: reason, attempts: (it.attempts || 0) + 1 });
         } else {
           await tixQueueUpdate(it.id, { status: "queued", lastError: "retry pending", attempts: (it.attempts || 0) + 1 });
         }
@@ -1394,6 +1424,13 @@
   document.getElementById("tix-date").value=todayStr();
   document.getElementById("tix-date").addEventListener("change",renderTickets);
 
+  // Supabase free-tier projects have a hard 50MB global file size limit
+  // that cannot be raised without upgrading. Files over this size are
+  // rejected instantly by the server (HTTP 413) no matter how good the
+  // connection is or how many times it retries — so we check up front
+  // and refuse to queue anything that can never succeed.
+  var MAX_TICKET_FILE_BYTES = 50 * 1024 * 1024;
+
   document.getElementById("tix-upload-btn").addEventListener("click",async function(){
     var btn=this;
     var date=document.getElementById("tix-date").value;
@@ -1406,12 +1443,24 @@
       errEl.textContent="⚠️ Choose a date and at least one file.";
       errEl.style.display="block"; return;
     }
+    var tooLarge=[];
+    var acceptedFiles=[];
+    for(var i=0;i<files.length;i++){
+      if(files[i].size>MAX_TICKET_FILE_BYTES){ tooLarge.push(files[i]); }
+      else { acceptedFiles.push(files[i]); }
+    }
+    if(tooLarge.length>0){
+      var list=tooLarge.map(function(f){return f.name+" ("+(f.size/1024/1024).toFixed(1)+"MB)";}).join(", ");
+      errEl.textContent="⚠️ Too large to upload (50MB limit on this account): "+list+". Re-scan at a lower resolution/grayscale and try again — these were not queued.";
+      errEl.style.display="block";
+    }
+    if(acceptedFiles.length===0){ return; }
     btn.disabled=true; btn.textContent="Saving to this device…";
     // Save straight to IndexedDB — this is instant and needs no network
     // at all. The background queue (processTixQueue, running on its own
     // timer) picks these up and syncs them to Supabase whenever it can.
-    for(var i=0;i<files.length;i++){
-      var file=files[i];
+    for(var j=0;j<acceptedFiles.length;j++){
+      var file=acceptedFiles[j];
       await tixQueueAdd({
         date: date,
         fileName: file.name,
@@ -1426,7 +1475,7 @@
     }
     btn.textContent="📤 Upload Tickets"; btn.disabled=false;
     filesInput.value="";
-    okEl.textContent="✅ "+files.length+" file"+(files.length>1?"s":"")+" saved on this device for "+fmtDate(date)+" and queued to upload — it'll sync automatically, no need to keep this tab open on the same file.";
+    okEl.textContent="✅ "+acceptedFiles.length+" file"+(acceptedFiles.length>1?"s":"")+" saved on this device for "+fmtDate(date)+" and queued to upload — it'll sync automatically, no need to keep this tab open on the same file.";
     okEl.style.display="block";
     setTimeout(function(){okEl.style.display="none";},5000);
     renderTixQueue();
